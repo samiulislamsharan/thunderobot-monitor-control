@@ -9,6 +9,9 @@ import {
   Cpu,
   Info,
 } from "lucide-vue-next";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 const props = defineProps({
   updating: Boolean,
@@ -52,37 +55,34 @@ const sendRawVcp = () => {
 </script>
 
 <template>
-  <div
-    class="rounded-2xl bg-cyber-card border border-cyber-border overflow-hidden transition-all"
-  >
+  <Card class="overflow-hidden transition-all">
     <!-- Collapsible Header -->
     <button
       @click="isExpanded = !isExpanded"
-      class="w-full p-4 sm:p-5 flex items-center justify-between hover:bg-slate-900/50 transition text-left"
+      class="flex items-center justify-between w-full p-4 text-left transition cursor-pointer sm:p-5 hover:bg-muted/50"
     >
-      <div class="flex items-center space-x-2.5">
+      <div class="flex items-center space-x-3">
         <div
-          class="p-2 rounded-xl bg-slate-800 text-slate-300 border border-slate-700"
+          class="p-2 border rounded-lg bg-muted text-foreground border-border"
         >
-          <Terminal class="w-4 h-4 text-cyan-400" />
+          <Terminal class="w-4 h-4 text-foreground" />
         </div>
         <div>
           <div class="flex items-center space-x-2">
-            <h2 class="text-sm font-bold text-white">
+            <h2 class="text-sm font-semibold text-foreground">
               Advanced DDC/CI Protocol Inspector
             </h2>
-            <span
-              class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono"
-              >Expert</span
+            <Badge variant="secondary" class="font-mono text-[10px]"
+              >Expert</Badge
             >
           </div>
-          <p class="text-xs text-slate-400">
+          <p class="text-xs text-muted-foreground">
             Direct register reader/writer & raw hex VCP testing
           </p>
         </div>
       </div>
 
-      <div class="p-1 rounded-lg text-slate-400">
+      <div class="p-1 rounded-md text-muted-foreground">
         <ChevronUp v-if="isExpanded" class="w-5 h-5" />
         <ChevronDown v-else class="w-5 h-5" />
       </div>
@@ -91,12 +91,12 @@ const sendRawVcp = () => {
     <!-- Expanded Body -->
     <div
       v-if="isExpanded"
-      class="p-5 border-t border-slate-800 space-y-5 bg-slate-950/40"
+      class="p-5 space-y-5 border-t border-border bg-muted/20"
     >
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <!-- VCP Code Input -->
         <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-slate-400 block font-mono"
+          <label class="block font-mono text-xs font-medium text-muted-foreground"
             >VCP Code (Hex or Dec)</label
           >
           <div class="flex items-center space-x-2">
@@ -104,22 +104,23 @@ const sendRawVcp = () => {
               type="text"
               v-model="rawCodeInput"
               placeholder="e.g. 0x10"
-              class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-cyan-400 focus:outline-none focus:border-cyan-500"
+              class="w-full px-3 py-2 font-mono text-sm border bg-background border-input rounded-md text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
             />
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               @click="readVcp"
               :disabled="queryLoading"
-              class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center space-x-1.5 transition"
             >
-              <Search class="w-3.5 h-3.5" />
+              <Search class="w-3.5 h-3.5 mr-1" />
               <span>Read</span>
-            </button>
+            </Button>
           </div>
         </div>
 
         <!-- Target Value Input & Write -->
         <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-slate-400 block font-mono"
+          <label class="block font-mono text-xs font-medium text-muted-foreground"
             >Target Value</label
           >
           <div class="flex items-center space-x-2">
@@ -127,15 +128,12 @@ const sendRawVcp = () => {
               type="number"
               v-model="rawValueInput"
               placeholder="e.g. 95"
-              class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-purple-400 focus:outline-none focus:border-purple-500"
+              class="w-full px-3 py-2 font-mono text-sm text-foreground border bg-background border-input rounded-md placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
             />
-            <button
-              @click="sendRawVcp"
-              class="px-3.5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold flex items-center space-x-1.5 transition shadow-sm"
-            >
-              <Send class="w-3.5 h-3.5" />
+            <Button variant="default" size="sm" @click="sendRawVcp">
+              <Send class="w-3.5 h-3.5 mr-1" />
               <span>Write</span>
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -143,30 +141,30 @@ const sendRawVcp = () => {
       <!-- Result Card -->
       <div
         v-if="queryResult"
-        class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-mono"
+        class="p-3.5 rounded-lg bg-background border border-border text-xs font-mono"
       >
         <div
           v-if="queryResult.error"
-          class="text-red-400 flex items-center gap-2"
+          class="flex items-center gap-2 text-destructive"
         >
           <span>❌ {{ queryResult.error }}</span>
         </div>
         <div v-else class="space-y-1 text-slate-300">
-          <p class="text-cyan-400 font-bold">
+          <p class="font-bold text-cyan-400">
             VCP {{ queryResult.hex_code }} ({{
               queryResult.label || queryResult.name
             }})
           </p>
           <p>
             Current Value:
-            <span class="text-emerald-400 font-bold">{{
+            <span class="font-bold text-emerald-400">{{
               queryResult.current
             }}</span>
             (0x{{ Number(queryResult.current).toString(16).toUpperCase() }})
           </p>
           <p>
             Maximum Value:
-            <span class="text-purple-400 font-bold">{{ queryResult.max }}</span>
+            <span class="font-bold text-purple-400">{{ queryResult.max }}</span>
           </p>
           <p>
             Control Type:
@@ -187,35 +185,17 @@ const sendRawVcp = () => {
           Quick Reference for ThundeRobot DQ34C240L:
         </p>
         <div class="flex flex-wrap gap-2 text-[11px] font-mono">
-          <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800"
-            >0x10: Brightness</span
-          >
-          <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800"
-            >0x12: Contrast</span
-          >
-          <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800"
-            >0x14: Color Preset</span
-          >
-          <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800"
-            >0x60: Input Source</span
-          >
-          <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800"
-            >0xDC: Picture Mode</span
-          >
-          <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800"
-            >0x3E: Sharpness</span
-          >
-          <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800"
-            >0x68: Overdrive</span
-          >
-          <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800"
-            >0xE3: MPRT</span
-          >
-          <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800"
-            >0xFD: MStar Tunnel</span
-          >
+          <Badge variant="outline" class="font-mono">0x10: Brightness</Badge>
+          <Badge variant="outline" class="font-mono">0x12: Contrast</Badge>
+          <Badge variant="outline" class="font-mono">0x14: Color Preset</Badge>
+          <Badge variant="outline" class="font-mono">0x60: Input Source</Badge>
+          <Badge variant="outline" class="font-mono">0xDC: Picture Mode</Badge>
+          <Badge variant="outline" class="font-mono">0x3E: Sharpness</Badge>
+          <Badge variant="outline" class="font-mono">0x68: Overdrive</Badge>
+          <Badge variant="outline" class="font-mono">0xE3: MPRT</Badge>
+          <Badge variant="outline" class="font-mono">0xFD: MStar Tunnel</Badge>
         </div>
       </div>
     </div>
-  </div>
+  </Card>
 </template>

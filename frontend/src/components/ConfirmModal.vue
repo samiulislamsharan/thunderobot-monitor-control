@@ -1,6 +1,7 @@
 <script setup>
 import { ref, watch } from "vue";
 import { AlertTriangle, X } from "lucide-vue-next";
+import { Button } from "@/components/ui/button";
 
 const props = defineProps({
   isOpen: Boolean,
@@ -33,41 +34,42 @@ const handleBackdropClick = (e) => {
     ref="dialogRef"
     @click="handleBackdropClick"
     @cancel="emit('close')"
-    class="rounded-2xl bg-cyber-card border border-cyber-border text-slate-100 p-0 shadow-2xl max-w-sm w-full m-auto overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+    class="w-full max-w-sm p-0 m-auto overflow-hidden duration-150 border shadow-lg rounded-lg bg-card border-border text-card-foreground animate-in fade-in zoom-in-95"
   >
-    <div class="p-5 space-y-4">
+    <div class="p-6 space-y-4">
       <div class="flex items-start space-x-3">
         <div
-          class="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0"
+          class="p-2 rounded-md bg-destructive/10 text-destructive shrink-0"
         >
           <AlertTriangle class="w-5 h-5" />
         </div>
         <div>
-          <h3 class="text-base font-bold text-white">
+          <h3 class="text-base font-semibold text-foreground">
             {{ config?.title || "Confirm Action" }}
           </h3>
-          <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+          <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
             {{ config?.message }}
           </p>
         </div>
       </div>
 
       <div
-        class="flex items-center justify-end space-x-2.5 pt-2 border-t border-slate-800"
+        class="flex items-center justify-end space-x-2 pt-4 border-t border-border"
       >
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           @click="emit('close')"
-          class="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition"
         >
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="destructive"
+          size="sm"
           @click="emit('confirm')"
-          :class="config?.confirmColor || 'bg-cyan-500 text-slate-950'"
-          class="px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm"
         >
           {{ config?.confirmText || "Confirm" }}
-        </button>
+        </Button>
       </div>
     </div>
   </dialog>

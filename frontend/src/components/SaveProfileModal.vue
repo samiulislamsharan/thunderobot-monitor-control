@@ -10,6 +10,7 @@ import {
   Sparkles,
   Check,
 } from "lucide-vue-next";
+import { Button } from "@/components/ui/button";
 
 const props = defineProps({
   isOpen: Boolean,
@@ -66,63 +67,60 @@ const handleBackdropClick = (e) => {
     ref="dialogRef"
     @click="handleBackdropClick"
     @cancel="emit('close')"
-    class="rounded-2xl bg-cyber-card border border-cyber-border text-slate-100 p-0 shadow-2xl max-w-md w-full m-auto overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+    class="w-full max-w-md p-0 m-auto overflow-hidden duration-150 border shadow-lg rounded-lg bg-card border-border text-card-foreground animate-in fade-in zoom-in-95"
   >
     <div class="p-6 space-y-5">
       <!-- Header -->
       <div
-        class="flex items-center justify-between pb-3 border-b border-slate-800"
+        class="flex items-center justify-between pb-3 border-b border-border"
       >
         <div class="flex items-center space-x-2.5">
           <div
-            class="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
+            class="p-2 border rounded-lg bg-muted text-foreground border-border"
           >
             <BookmarkPlus class="w-5 h-5" />
           </div>
           <div>
-            <h3 class="text-base font-bold text-white">Save Current Preset</h3>
-            <p class="text-xs text-slate-400">
+            <h3 class="text-base font-semibold text-foreground">Save Current Preset</h3>
+            <p class="text-xs text-muted-foreground">
               Capture active hardware settings into a 1-click profile
             </p>
           </div>
         </div>
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
           @click="emit('close')"
-          class="p-1 text-slate-400 hover:text-white rounded-lg transition"
+          class="h-8 w-8 text-muted-foreground hover:text-foreground"
         >
-          <X class="w-5 h-5" />
-        </button>
+          <X class="w-4 h-4" />
+        </Button>
       </div>
 
       <!-- Settings Snapshot Badge -->
       <div
-        class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-300 space-y-1 font-mono"
+        class="p-3 space-y-1 font-mono text-xs border rounded-lg bg-muted/40 border-border text-foreground"
       >
         <div
-          class="text-[11px] text-slate-400 uppercase font-semibold font-sans"
+          class="text-[11px] text-muted-foreground uppercase font-semibold font-sans"
         >
           Snapshot to be saved:
         </div>
         <div class="flex flex-wrap gap-2 text-[11px]">
-          <span class="text-cyan-400"
-            >Brightness: {{ features?.brightness }}%</span
-          >
-          <span class="text-purple-400"
-            >Contrast: {{ features?.contrast }}%</span
-          >
-          <span class="text-emerald-400"
-            >Mode: 0x{{ Number(features?.picture_mode).toString(16) }}</span
-          >
-          <span class="text-amber-400"
-            >Overdrive: {{ features?.overdrive }}</span
-          >
+          <span>Brightness: {{ features?.brightness }}%</span>
+          <span>•</span>
+          <span>Contrast: {{ features?.contrast }}%</span>
+          <span>•</span>
+          <span>Mode: 0x{{ Number(features?.picture_mode).toString(16) }}</span>
+          <span>•</span>
+          <span>Overdrive: {{ features?.overdrive }}</span>
         </div>
       </div>
 
       <!-- Form Inputs -->
       <div class="space-y-4">
         <div>
-          <label class="text-xs font-semibold text-slate-300 block mb-1.5"
+          <label class="text-xs font-medium text-foreground block mb-1.5"
             >Preset Name</label
           >
           <input
@@ -130,12 +128,12 @@ const handleBackdropClick = (e) => {
             v-model="profileName"
             placeholder="e.g. Apex Legends 250Hz or Late Night Work"
             maxlength="50"
-            class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition"
+            class="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background transition"
           />
         </div>
 
         <div>
-          <label class="text-xs font-semibold text-slate-300 block mb-1.5"
+          <label class="text-xs font-medium text-foreground block mb-1.5"
             >Description (Optional)</label
           >
           <input
@@ -143,13 +141,13 @@ const handleBackdropClick = (e) => {
             v-model="profileDesc"
             placeholder="e.g. High refresh rate with maximized visibility"
             maxlength="100"
-            class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition"
+            class="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background transition"
           />
         </div>
 
         <!-- Icon Picker -->
         <div>
-          <label class="text-xs font-semibold text-slate-300 block mb-1.5"
+          <label class="text-xs font-medium text-foreground block mb-1.5"
             >Choose Icon</label
           >
           <div class="flex items-center space-x-2">
@@ -159,10 +157,10 @@ const handleBackdropClick = (e) => {
               type="button"
               @click="selectedIcon = item.name"
               :class="[
-                'p-2.5 rounded-xl border flex flex-col items-center justify-center transition select-none',
+                'p-2.5 rounded-lg border flex flex-col items-center justify-center transition select-none cursor-pointer',
                 selectedIcon === item.name
-                  ? 'bg-cyan-950/60 border-cyan-400 text-cyan-300'
-                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white',
+                  ? 'bg-accent border-primary text-accent-foreground ring-1 ring-primary/20'
+                  : 'bg-card border-border text-muted-foreground hover:text-foreground',
               ]"
             >
               <component :is="item.icon" class="w-4 h-4" />
@@ -174,22 +172,24 @@ const handleBackdropClick = (e) => {
 
       <!-- Actions -->
       <div
-        class="flex items-center justify-end space-x-2.5 pt-3 border-t border-slate-800"
+        class="flex items-center justify-end space-x-2 pt-3 border-t border-border"
       >
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           @click="emit('close')"
-          class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition"
         >
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="default"
+          size="sm"
           @click="handleSave"
           :disabled="!profileName.trim()"
-          class="px-5 py-2 rounded-xl text-xs font-bold bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 transition shadow-cyan-glow flex items-center space-x-1.5"
         >
-          <Check class="w-4 h-4" />
+          <Check class="w-4 h-4 mr-1.5" />
           <span>Save Preset</span>
-        </button>
+        </Button>
       </div>
     </div>
   </dialog>

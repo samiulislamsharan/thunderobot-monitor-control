@@ -1,91 +1,100 @@
 <script setup>
-import { Monitor, Smartphone, Activity, Zap, RefreshCw, Clock, Download } from 'lucide-vue-next';
-import { canInstall, promptInstall, isStandalone } from '../registerServiceWorker';
+import {
+  Monitor,
+  Smartphone,
+  Activity,
+  Zap,
+  RefreshCw,
+  Clock,
+  Download,
+} from "lucide-vue-next";
+import {
+  canInstall,
+  promptInstall,
+  isStandalone,
+} from "../registerServiceWorker";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 const props = defineProps({
   monitorInfo: Object,
   connected: Boolean,
-  updating: Boolean
+  updating: Boolean,
 });
 
-const emit = defineEmits(['openPhoneModal', 'refresh']);
+const emit = defineEmits(["openPhoneModal", "refresh"]);
 </script>
 
 <template>
   <header
-    class="border-b border-cyber-border bg-cyber-card/80 backdrop-blur-md sticky top-0 z-30 px-4 lg:px-8 py-3.5 transition-all"
+    class="sticky top-0 z-30 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 lg:px-8 py-3 transition-all"
   >
     <div
-      class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3"
+      class="flex flex-wrap items-center justify-between gap-3 mx-auto max-w-7xl"
     >
       <!-- Left: Brand & Model -->
       <div class="flex items-center space-x-3">
         <img
           src="/icons/icon-192.png"
           alt="ThundeRobot Logo"
-          class="w-10 h-10 rounded-xl object-cover border border-cyan-500/40 shadow-cyan-glow"
+          class="object-cover border rounded-md w-9 h-9 border-border"
         />
         <div>
           <div class="flex items-center space-x-2">
             <h1
-              class="text-base sm:text-lg font-bold tracking-wider text-white"
+              class="text-base font-semibold tracking-tight text-foreground sm:text-lg flex items-center gap-1.5"
             >
-              THUNDEROBOT
-              <span class="text-cyan-400 font-mono text-sm sm:text-base">{{
-                monitorInfo.model || "DQ34C240L"
-              }}</span>
+              <span>THUNDEROBOT</span>
+              <span
+                class="font-mono text-xs font-normal text-muted-foreground sm:text-sm"
+              >
+                {{ monitorInfo.model || "DQ34C240L" }}
+              </span>
             </h1>
-            <span
-              class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-cyan-950/80 text-cyan-400 border border-cyan-500/30"
-            >
-              34″ Fast VA
-            </span>
+            <Badge variant="secondary"> 34″ Fast VA </Badge>
           </div>
-          <p class="text-xs text-slate-400 hidden sm:block">
+          <p class="hidden text-xs text-muted-foreground sm:block">
             UWQHD 3440×1440 • 1500R Curved • DDC/CI Hardware Sync
           </p>
         </div>
       </div>
 
       <!-- Center / Right Telemetry Badges -->
-      <div class="flex items-center flex-wrap gap-2 text-xs">
+      <div class="flex flex-wrap items-center gap-2 text-xs">
         <!-- Live Refresh Rate -->
-        <div
-          class="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-200"
-        >
-          <Zap class="w-3.5 h-3.5 text-cyan-400" />
-          <span class="font-mono font-bold text-cyan-300">
+        <Badge variant="outline" class="font-mono py-1 px-2.5 gap-1.5">
+          <Zap class="w-3.5 h-3.5 text-foreground" />
+          <span class="font-bold">
             {{
               monitorInfo.telemetry?.v_freq || monitorInfo.refresh_rate || 250
             }}
             Hz
           </span>
-        </div>
+        </Badge>
 
         <!-- Power On Hours -->
-        <div
-          class="hidden md:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300"
+        <Badge
+          variant="outline"
+          class="hidden md:flex py-1 px-2.5 gap-1.5 text-muted-foreground"
         >
-          <Clock class="w-3.5 h-3.5 text-purple-400" />
+          <Clock class="w-3.5 h-3.5" />
           <span>{{ monitorInfo.telemetry?.usage_hours || 127 }}h On</span>
-        </div>
+        </Badge>
 
         <!-- Connection Status -->
-        <div
-          class="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800"
-        >
-          <span class="relative flex h-2 w-2">
+        <Badge variant="outline" class="py-1 px-2.5 gap-1.5">
+          <span class="relative flex w-2 h-2">
             <span
               v-if="connected"
-              class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"
+              class="absolute inline-flex w-full h-full rounded-full opacity-75 animate-ping bg-emerald-500"
             ></span>
             <span
-              :class="connected ? 'bg-emerald-400' : 'bg-red-400'"
-              class="relative inline-flex rounded-full h-2 w-2"
+              :class="connected ? 'bg-emerald-500' : 'bg-destructive'"
+              class="relative inline-flex w-2 h-2 rounded-full"
             ></span>
           </span>
           <span
-            :class="connected ? 'text-emerald-400' : 'text-red-400'"
+            :class="connected ? 'text-foreground' : 'text-destructive'"
             class="font-medium"
           >
             {{
@@ -96,35 +105,41 @@ const emit = defineEmits(['openPhoneModal', 'refresh']);
                 : "Disconnected"
             }}
           </span>
-        </div>
+        </Badge>
 
         <!-- Refresh Button -->
-        <button
+        <Button
+          variant="outline"
+          size="icon"
           @click="$emit('refresh')"
-          class="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-cyan-400 transition"
+          class="w-8 h-8"
           title="Reload Hardware State"
         >
           <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': updating }" />
-        </button>
+        </Button>
 
         <!-- PWA Install App Button (shown when installable) -->
-        <button
+        <Button
           v-if="canInstall"
+          variant="default"
+          size="sm"
           @click="promptInstall"
-          class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-medium transition shadow-sm animate-pulse"
+          class="gap-1.5"
         >
-          <Download class="w-3.5 h-3.5 text-emerald-400" />
+          <Download class="w-3.5 h-3.5" />
           <span>Install App</span>
-        </button>
+        </Button>
 
         <!-- Phone Remote Pairing Button -->
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           @click="$emit('openPhoneModal')"
-          class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500/20 to-purple-500/20 hover:from-cyan-500/30 hover:to-purple-500/30 border border-cyan-500/40 text-cyan-300 font-medium transition shadow-sm hover:shadow-cyan-glow"
+          class="gap-1.5"
         >
-          <Smartphone class="w-3.5 h-3.5 text-cyan-400" />
+          <Smartphone class="w-3.5 h-3.5 text-muted-foreground" />
           <span>Phone Remote</span>
-        </button>
+        </Button>
       </div>
     </div>
   </header>

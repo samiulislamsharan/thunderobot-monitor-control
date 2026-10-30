@@ -6,13 +6,22 @@ import {
   AlertTriangle,
   RotateCcw,
 } from "lucide-vue-next";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 const props = defineProps({
   features: Object,
   updating: Boolean,
 });
 
-const emit = defineEmits(["setFeature", "openConfirmModal"]);
+const emit = defineEmits(["setFeature", "openConfirmModal", "resetFactory"]);
 
 const inputs = [
   {
@@ -73,97 +82,101 @@ const handleFactoryReset = () => {
 </script>
 
 <template>
-  <div
-    class="rounded-2xl bg-cyber-card border border-cyber-border p-5 lg:p-6 space-y-6"
-  >
+  <Card class="overflow-hidden">
     <!-- Header -->
-    <div
-      class="flex items-center justify-between pb-4 border-b border-slate-800"
+    <CardHeader
+      class="flex flex-row items-center justify-between pb-4 border-b border-border"
     >
-      <div class="flex items-center space-x-2.5">
+      <div class="flex items-center space-x-3">
         <div
-          class="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
+          class="p-2 border rounded-lg bg-muted text-foreground border-border"
         >
           <MonitorPlay class="w-5 h-5" />
         </div>
         <div>
-          <h2 class="text-base font-bold text-white">
-            Input Source & Power Management
-          </h2>
-          <p class="text-xs text-slate-400">
-            Switch active display ports and manage power states
-          </p>
+          <CardTitle>Input Source & Power Management</CardTitle>
+          <CardDescription
+            >Switch active display ports and manage power
+            states</CardDescription
+          >
         </div>
       </div>
-    </div>
+    </CardHeader>
 
-    <!-- Video Input Select -->
-    <div class="space-y-3">
-      <label
-        class="text-xs font-semibold text-slate-400 uppercase tracking-wider block"
-      >
-        Video Input Connectors (0x60)
-      </label>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <button
-          v-for="inp in inputs"
-          :key="inp.value"
-          @click="handleInputSelect(inp.value)"
-          :class="[
-            'p-3.5 rounded-xl border flex flex-col items-center justify-center text-center space-y-1.5 transition-all select-none',
-            features.input_source === inp.value
-              ? 'bg-cyan-950/60 border-cyan-400 text-cyan-300 shadow-cyan-glow'
-              : 'bg-slate-900/60 border-slate-800/80 text-slate-400 hover:text-white hover:border-slate-700',
-          ]"
+    <CardContent class="pt-5 space-y-6">
+      <!-- Video Input Select -->
+      <div class="space-y-3">
+        <label
+          class="block text-xs font-semibold tracking-wider uppercase text-muted-foreground"
         >
-          <component :is="inp.icon" class="w-5 h-5" />
-          <span class="text-xs font-bold">{{ inp.label }}</span>
-          <span
-            class="text-[10px] px-1.5 py-0.5 rounded font-mono"
-            :class="
+          Video Input Connectors (0x60)
+        </label>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <Button
+            v-for="inp in inputs"
+            :key="inp.value"
+            variant="outline"
+            @click="handleInputSelect(inp.value)"
+            :class="[
+              'h-auto p-3.5 rounded-lg flex flex-col items-center justify-center text-center space-y-1.5 transition-all select-none',
               features.input_source === inp.value
-                ? 'bg-cyan-900/80 text-cyan-200'
-                : 'bg-slate-800 text-slate-400'
-            "
+                ? 'bg-accent text-accent-foreground border-primary shadow-xs ring-1 ring-primary/20'
+                : 'bg-card text-muted-foreground hover:text-foreground border-border',
+            ]"
           >
-            {{ inp.badge }}
-          </span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Power & Reset Controls -->
-    <div
-      class="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3"
-    >
-      <div class="flex items-center space-x-2">
-        <!-- Standby Button -->
-        <button
-          @click="handleStandby"
-          class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-purple-400 hover:text-purple-300 border border-slate-800 hover:border-purple-500/40 text-xs font-medium flex items-center space-x-2 transition"
-        >
-          <Moon class="w-4 h-4" />
-          <span>Sleep / Standby</span>
-        </button>
-
-        <!-- Power Off Button -->
-        <button
-          @click="handlePowerOff"
-          class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-red-950/40 text-red-400 hover:text-red-300 border border-slate-800 hover:border-red-500/40 text-xs font-medium flex items-center space-x-2 transition"
-        >
-          <Power class="w-4 h-4" />
-          <span>Turn Off Monitor</span>
-        </button>
+            <component :is="inp.icon" class="w-5 h-5 text-foreground" />
+            <span class="text-xs font-semibold">{{ inp.label }}</span>
+            <Badge
+              :variant="
+                features.input_source === inp.value ? 'default' : 'secondary'
+              "
+              class="text-[10px] font-mono"
+            >
+              {{ inp.badge }}
+            </Badge>
+          </Button>
+        </div>
       </div>
 
-      <!-- Factory Reset -->
-      <button
-        @click="handleFactoryReset"
-        class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-amber-400 border border-slate-800 text-xs font-medium flex items-center space-x-2 transition"
+      <!-- Power & Reset Controls -->
+      <div
+        class="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-border"
       >
-        <RotateCcw class="w-4 h-4" />
-        <span>Factory Reset All</span>
-      </button>
-    </div>
-  </div>
+        <div class="flex items-center space-x-2">
+          <!-- Standby Button -->
+          <Button
+            variant="outline"
+            size="sm"
+            @click="handleStandby"
+            class="text-muted-foreground hover:text-foreground"
+          >
+            <Moon class="w-4 h-4 mr-1.5" />
+            <span>Sleep / Standby</span>
+          </Button>
+
+          <!-- Power Off Button -->
+          <Button
+            variant="outline"
+            size="sm"
+            @click="handlePowerOff"
+            class="text-destructive hover:bg-destructive hover:text-destructive-foreground border-destructive/30"
+          >
+            <Power class="w-4 h-4 mr-1.5" />
+            <span>Turn Off Monitor</span>
+          </Button>
+        </div>
+
+        <!-- Factory Reset -->
+        <Button
+          variant="outline"
+          size="sm"
+          @click="handleFactoryReset"
+          class="text-muted-foreground hover:text-foreground"
+        >
+          <RotateCcw class="w-4 h-4 mr-1.5" />
+          <span>Factory Reset All</span>
+        </Button>
+      </div>
+    </CardContent>
+  </Card>
 </template>
