@@ -7,6 +7,7 @@ import {
   RefreshCw,
   Clock,
   Download,
+  Settings,
 } from "lucide-vue-next";
 import {
   canInstall,
@@ -22,7 +23,7 @@ const props = defineProps({
   updating: Boolean,
 });
 
-const emit = defineEmits(["openPhoneModal", "refresh"]);
+const emit = defineEmits(["openPhoneModal", "openSettingsModal", "refresh"]);
 </script>
 
 <template>
@@ -138,7 +139,18 @@ const emit = defineEmits(["openPhoneModal", "refresh"]);
           class="gap-1.5"
         >
           <Smartphone class="w-3.5 h-3.5 text-muted-foreground" />
-          <span>Phone Remote</span>
+          <span class="hidden sm:inline">Phone Remote</span>
+        </Button>
+
+        <!-- Settings Button -->
+        <Button
+          variant="outline"
+          size="icon"
+          @click="$emit('openSettingsModal')"
+          class="h-8 w-8 text-muted-foreground hover:text-foreground"
+          title="App Settings & Hotkeys"
+        >
+          <Settings class="w-4 h-4" />
         </Button>
       </div>
     </div>

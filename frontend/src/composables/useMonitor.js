@@ -1,4 +1,5 @@
 import { ref, reactive, computed } from "vue";
+import { api } from "@/api/adapter";
 
 const monitorInfo = ref({
   model: "DQ34C240L",
@@ -61,11 +62,9 @@ export function useMonitor() {
 
   const fetchMonitorInfo = async () => {
     try {
-      const res = await fetch("/api/monitor");
-      if (res.ok) {
-        monitorInfo.value = await res.json();
-        connected.value = true;
-      }
+      const data = await api.getMonitorInfo();
+      monitorInfo.value = data;
+      connected.value = true;
     } catch (e) {
       console.warn("Failed to fetch monitor info:", e);
       connected.value = false;
@@ -74,17 +73,14 @@ export function useMonitor() {
 
   const fetchFeatures = async () => {
     try {
-      const res = await fetch("/api/vcp/all");
-      if (res.ok) {
-        const data = await res.json();
-        featureMeta.value = data.features || {};
-        for (const [key, item] of Object.entries(data.features || {})) {
-          if (key in features && item.value !== undefined) {
-            features[key] = item.value;
-          }
+      const data = await api.getFeatures();
+      featureMeta.value = data.features || {};
+      for (const [key, item] of Object.entries(data.features || {})) {
+        if (key in features && item.value !== undefined) {
+          features[key] = item.value;
         }
-        connected.value = true;
       }
+      connected.value = true;
     } catch (e) {
       console.warn("Failed to fetch VCP features:", e);
       connected.value = false;
@@ -95,11 +91,8 @@ export function useMonitor() {
 
   const fetchProfiles = async () => {
     try {
-      const res = await fetch("/api/profiles");
-      if (res.ok) {
-        const data = await res.json();
-        profiles.value = data.profiles || [];
-      }
+      const data = await api.getProfiles();
+      profiles.value = data.profiles || [];
     } catch (e) {
       console.warn("Failed to fetch profiles:", e);
     }
@@ -119,20 +112,9 @@ export function useMonitor() {
     const timer = setTimeout(async () => {
       updating.value = true;
       try {
-        const res = await fetch(`/api/vcp/${name}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ value }),
-        });
-        if (!res.ok) {
-          const err = await res.json();
-          addToast(
-            `Failed to set ${name}: ${err.detail || "Hardware error"}`,
-            "error",
-          );
-        }
+        await api.setFeature(name, value);
       } catch (e) {
-        addToast(`Network error setting ${name}`, "error");
+        addToast(`Failed to set ${name}: ${e.message}`, "error");
       } finally {
         updating.value = false;
         debounceTimers.delete(name);
@@ -145,21 +127,15 @@ export function useMonitor() {
   const applyProfile = async (profileId) => {
     try {
       updating.value = true;
-      const res = await fetch(`/api/profiles/${profileId}/apply`, {
-        method: "POST",
-      });
-      if (res.ok) {
-        activeProfileId.value = profileId;
-        const profile = profiles.value.find((p) => p.id === profileId);
-        if (profile && profile.settings) {
-          Object.assign(features, profile.settings);
-        }
-        addToast(`Applied preset: ${profile?.name || "Custom"}`, "success");
-      } else {
-        addToast("Failed to apply preset", "error");
+      await api.applyProfile(profileId);
+      activeProfileId.value = profileId;
+      const profile = profiles.value.find((p) => p.id === profileId);
+      if (profile && profile.settings) {
+        Object.assign(features, profile.settings);
       }
+      addToast(`Applied preset: ${profile?.name || "Custom"}`, "success");
     } catch (e) {
-      addToast("Error applying preset", "error");
+      addToast(`Error applying preset: ${e.message}`, "error");
     } finally {
       updating.value = false;
     }
@@ -180,21 +156,16 @@ export function useMonitor() {
         mprt_aim: features.mprt_aim,
       };
 
-      const res = await fetch("/api/profiles", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          description,
-          icon,
-          settings: settingsSnapshot,
-        }),
+      const res = await api.createProfile({
+        name,
+        description,
+        icon,
+        settings: settingsSnapshot,
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        profiles.value.push(data.profile);
-        activeProfileId.value = data.profile.id;
+      if (res && res.profile) {
+        profiles.value.push(res.profile);
+        activeProfileId.value = res.profile.id;
         addToast(`Profile "${name}" created!`, "success");
         return true;
       }
@@ -206,16 +177,12 @@ export function useMonitor() {
 
   const deleteProfile = async (profileId) => {
     try {
-      const res = await fetch(`/api/profiles/${profileId}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        profiles.value = profiles.value.filter((p) => p.id !== profileId);
-        if (activeProfileId.value === profileId) {
-          activeProfileId.value = null;
-        }
-        addToast("Preset deleted", "info");
+      await api.deleteProfile(profileId);
+      profiles.value = profiles.value.filter((p) => p.id !== profileId);
+      if (activeProfileId.value === profileId) {
+        activeProfileId.value = null;
       }
+      addToast("Preset deleted", "info");
     } catch (e) {
       addToast("Failed to delete preset", "error");
     }
@@ -223,18 +190,9 @@ export function useMonitor() {
 
   const resetMonitor = async (resetType) => {
     try {
-      const res = await fetch("/api/vcp/reset", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reset_type: resetType }),
-      });
-      if (res.ok) {
-        addToast(`Reset executed (${resetType})`, "success");
-        // Refresh features after reset
-        setTimeout(fetchFeatures, 1000);
-      } else {
-        addToast("Reset command failed", "error");
-      }
+      await api.resetMonitor(resetType);
+      addToast(`Reset executed (${resetType})`, "success");
+      setTimeout(fetchFeatures, 1000);
     } catch (e) {
       addToast("Reset error", "error");
     }
@@ -242,24 +200,14 @@ export function useMonitor() {
 
   const setRawVcp = async (code, value) => {
     try {
-      const res = await fetch("/api/vcp/raw/direct", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: Number(code), value: Number(value) }),
-      });
-      if (res.ok) {
-        addToast(
-          `VCP 0x${Number(code).toString(16).toUpperCase()} set to ${value}`,
-          "success",
-        );
-        return true;
-      } else {
-        const err = await res.json();
-        addToast(`Raw write failed: ${err.detail}`, "error");
-        return false;
-      }
+      await api.setRawVcp(Number(code), Number(value));
+      addToast(
+        `VCP 0x${Number(code).toString(16).toUpperCase()} set to ${value}`,
+        "success",
+      );
+      return true;
     } catch (e) {
-      addToast("Network error during raw write", "error");
+      addToast(`Raw write failed: ${e.message}`, "error");
       return false;
     }
   };

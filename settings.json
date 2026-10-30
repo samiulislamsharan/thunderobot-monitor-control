@@ -1,0 +1,82 @@
+{
+  "autostart": false,
+  "close_to_tray": true,
+  "start_minimized": false,
+  "default_profile": "preset-fps-250",
+  "i2c_delay_ms": 35,
+  "telemetry_interval_sec": 3,
+  "phone_remote_enabled": true,
+  "phone_remote_port": 8000,
+  "hotkeys": [
+    {
+      "id": "brightness_up",
+      "action": "Brightness Up (+5%)",
+      "key_combination": "Ctrl+Alt+Up",
+      "enabled": true,
+      "description": "Increase display backlight luminance by 5%"
+    },
+    {
+      "id": "brightness_down",
+      "action": "Brightness Down (-5%)",
+      "key_combination": "Ctrl+Alt+Down",
+      "enabled": true,
+      "description": "Decrease display backlight luminance by 5%"
+    },
+    {
+      "id": "contrast_up",
+      "action": "Contrast Up (+5%)",
+      "key_combination": "Ctrl+Alt+Right",
+      "enabled": true,
+      "description": "Increase display contrast ratio by 5%"
+    },
+    {
+      "id": "contrast_down",
+      "action": "Contrast Down (-5%)",
+      "key_combination": "Ctrl+Alt+Left",
+      "enabled": true,
+      "description": "Decrease display contrast ratio by 5%"
+    },
+    {
+      "id": "preset_fps",
+      "action": "Preset: 250Hz Esports",
+      "key_combination": "Ctrl+Alt+1",
+      "enabled": true,
+      "description": "Switch to Competitive 250Hz FPS gaming preset"
+    },
+    {
+      "id": "preset_night",
+      "action": "Preset: Night Mode",
+      "key_combination": "Ctrl+Alt+2",
+      "enabled": true,
+      "description": "Switch to Eye-Care Low Blue Light preset"
+    },
+    {
+      "id": "preset_cinema",
+      "action": "Preset: Cinema 21:9",
+      "key_combination": "Ctrl+Alt+3",
+      "enabled": true,
+      "description": "Switch to 21:9 Ultrawide Cinema Movie preset"
+    },
+    {
+      "id": "preset_work",
+      "action": "Preset: Standard Work",
+      "key_combination": "Ctrl+Alt+4",
+      "enabled": true,
+      "description": "Switch to 6500K calibrated office / design preset"
+    },
+    {
+      "id": "toggle_standby",
+      "action": "Toggle Standby / Sleep",
+      "key_combination": "Ctrl+Alt+End",
+      "enabled": true,
+      "description": "Put monitor into DDC/CI power-saving standby"
+    },
+    {
+      "id": "toggle_window",
+      "action": "Show / Hide Window",
+      "key_combination": "Ctrl+Alt+M",
+      "enabled": true,
+      "description": "Toggle main controller window visibility"
+    }
+  ]
+}

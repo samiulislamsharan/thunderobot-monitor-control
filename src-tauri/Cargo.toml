@@ -1,0 +1,22 @@
+[package]
+name = "thunderobot-monitor-control"
+version = "1.0.0"
+description = "Native DDC/CI Controller for ThundeRobot DQ34C240L Gaming Monitor"
+authors = ["Samiul Islam"]
+edition = "2021"
+
+[lib]
+name = "app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.4" }
+
+[dependencies]
+tauri = { version = "2.12.5", features = ["tray-icon"] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-log = "2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+log = "0.4"

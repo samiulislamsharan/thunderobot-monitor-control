@@ -11,6 +11,7 @@ import RawVcpInspector from "./components/RawVcpInspector.vue";
 import PhonePairModal from "./components/PhonePairModal.vue";
 import ConfirmModal from "./components/ConfirmModal.vue";
 import SaveProfileModal from "./components/SaveProfileModal.vue";
+import SettingsModal from "./components/SettingsModal.vue";
 import { CheckCircle2, AlertCircle, Info, RefreshCw } from "lucide-vue-next";
 
 const {
@@ -35,6 +36,7 @@ const {
 const isPhoneModalOpen = ref(false);
 const isSaveModalOpen = ref(false);
 const isConfirmModalOpen = ref(false);
+const isSettingsModalOpen = ref(false);
 const confirmConfig = ref(null);
 
 onMounted(async () => {
@@ -79,6 +81,7 @@ const handleSaveProfile = async (profileData) => {
       :connected="connected"
       :updating="updating"
       @openPhoneModal="isPhoneModalOpen = true"
+      @openSettingsModal="isSettingsModalOpen = true"
       @refresh="init"
     />
 
@@ -166,6 +169,13 @@ const handleSaveProfile = async (profileData) => {
       :features="features"
       @close="isSaveModalOpen = false"
       @save="handleSaveProfile"
+    />
+
+    <SettingsModal
+      :isOpen="isSettingsModalOpen"
+      :monitorInfo="monitorInfo"
+      @close="isSettingsModalOpen = false"
+      @settingsSaved="init"
     />
 
     <!-- Toast Notifications -->

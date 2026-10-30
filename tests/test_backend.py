@@ -6,8 +6,19 @@ import json
 root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, root_dir)
 
-from backend.main import get_monitor_info, get_all_vcp, list_profiles, serve_spa, set_single_vcp, serve_sw, serve_manifest
-from backend.schemas import VCPSetRequest
+from backend.main import (
+    get_monitor_info,
+    get_all_vcp,
+    list_profiles,
+    serve_spa,
+    set_single_vcp,
+    serve_sw,
+    serve_manifest,
+    get_settings,
+    update_settings,
+    validate_hotkey,
+)
+from backend.schemas import VCPSetRequest, HotkeyValidateRequest, SettingsUpdateRequest
 
 def run_tests():
     print("=== 1. Testing Monitor Metadata ===")
@@ -82,6 +93,30 @@ def run_tests():
     icon_maskable_resp = serve_spa("icons/icon-512-maskable.png")
     print("Icon 512 Maskable status:", icon_maskable_resp.status_code)
     assert icon_maskable_resp.status_code == 200
+
+    print("\n=== 7. Testing App Settings & Hotkey Conflict Detection ===")
+    settings = get_settings()
+    assert "hotkeys" in settings, "Settings must include hotkeys"
+    assert settings["i2c_delay_ms"] == 35, f"Expected default 35ms delay, got {settings['i2c_delay_ms']}"
+    print(f"Loaded {len(settings['hotkeys'])} default hotkeys")
+
+    # Test 1: Self validation (valid)
+    valid_res = validate_hotkey(HotkeyValidateRequest(key_combination="Ctrl+Alt+Up", action_id="brightness_up"))
+    print("Validate self hotkey:", valid_res)
+    assert valid_res["valid"] is True, "Self hotkey should be valid"
+    assert valid_res["status"] == "ok"
+
+    # Test 2: Internal duplicate conflict
+    dup_res = validate_hotkey(HotkeyValidateRequest(key_combination="Ctrl+Alt+Up", action_id="contrast_up"))
+    print("Validate duplicate hotkey conflict:", dup_res)
+    assert dup_res["valid"] is False, "Duplicate hotkey should fail validation"
+    assert dup_res["status"] == "internal_conflict"
+
+    # Test 3: OS-level conflict (Win+L is reserved by Windows)
+    os_res = validate_hotkey(HotkeyValidateRequest(key_combination="Win+L", action_id="new_action"))
+    print("Validate OS conflict (Win+L):", os_res)
+    assert os_res["valid"] is False, "Win+L should trigger OS conflict"
+    assert os_res["status"] == "system_conflict"
 
     print("\n==========================================")
     print("[SUCCESS] ALL TESTS PASSED SUCCESSFULLY!")

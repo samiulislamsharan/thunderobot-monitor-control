@@ -9,12 +9,15 @@ from typing import Dict, Any, Optional
 from backend.ddcci import DDCCIController, VCP_DEFINITIONS
 from backend.monitor_detector import get_complete_monitor_metadata
 from backend.profiles import ProfileManager
+from backend.settings_manager import settings_manager
 from backend.schemas import (
     VCPSetRequest,
     VCPRawRequest,
     VCPBatchRequest,
     ProfileCreateRequest,
     ResetRequest,
+    HotkeyValidateRequest,
+    SettingsUpdateRequest,
 )
 
 # Reverse lookup for named settings to VCP code
@@ -234,6 +237,31 @@ def apply_profile(profile_id: str):
         "applied": applied,
         "errors": errors,
     }
+
+
+# ==========================================
+# Settings & Hotkeys Endpoints
+# ==========================================
+
+@app.get("/api/settings")
+def get_settings():
+    """Retrieve full app settings including hotkeys and hardware delay config."""
+    return settings_manager.get_all()
+
+
+@app.post("/api/settings")
+def update_settings(req: SettingsUpdateRequest):
+    """Update and persist application settings."""
+    payload = req.model_dump(exclude_unset=True)
+    updated = settings_manager.update(payload)
+    return {"success": True, "settings": updated}
+
+
+@app.post("/api/hotkeys/validate")
+def validate_hotkey(req: HotkeyValidateRequest):
+    """Validate hotkey combination for formatting, internal collisions, and OS-level conflicts."""
+    result = settings_manager.validate_hotkey(req.key_combination, req.action_id)
+    return result
 
 
 # Frontend static files mounting (when frontend is built)
