@@ -1,0 +1,82 @@
+{
+  "id": "thunderobot-dq34c240l-control",
+  "name": "ThundeRobot DQ34C240L Monitor Controller",
+  "short_name": "ThundeRobot",
+  "description": "Hardware DDC/CI control suite for ThundeRobot DQ34C240L 34″ Fast VA 250Hz Curved Gaming Monitor",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
+  "background_color": "#080c14",
+  "theme_color": "#080c14",
+  "orientation": "any",
+  "lang": "en-US",
+  "dir": "ltr",
+  "categories": [
+    "utilities",
+    "productivity",
+    "games"
+  ],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Competitive FPS 250Hz",
+      "short_name": "FPS 250Hz",
+      "description": "Activate FPS profile with maximum visibility",
+      "url": "/?profile=preset-fps-250",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Night Mode (Low Blue)",
+      "short_name": "Night Mode",
+      "description": "Activate gentle backlight with 6500K warm color",
+      "url": "/?profile=preset-night-reading",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Cinema 21:9 Movie",
+      "short_name": "Cinema",
+      "description": "Activate movie mode with deep dynamic contrast",
+      "url": "/?profile=preset-cinema",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}
