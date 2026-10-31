@@ -62,14 +62,22 @@ const loadSettings = async () => {
 const validateAllHotkeys = async () => {
   for (const hk of localSettings.hotkeys) {
     if (!hk.enabled) {
-      validationResults[hk.id] = { valid: true, status: "disabled", message: "Hotkey disabled" };
+      validationResults[hk.id] = {
+        valid: true,
+        status: "disabled",
+        message: "Hotkey disabled",
+      };
       continue;
     }
     try {
       const res = await api.validateHotkey(hk.key_combination, hk.id);
       validationResults[hk.id] = res;
     } catch (e) {
-      validationResults[hk.id] = { valid: false, status: "error", message: "Validation error" };
+      validationResults[hk.id] = {
+        valid: false,
+        status: "error",
+        message: "Validation error",
+      };
     }
   }
 };
@@ -84,7 +92,7 @@ watch(
       stopRecording();
       dialogRef.value?.close();
     }
-  }
+  },
 );
 
 // Hotkey Recording Logic
@@ -133,7 +141,9 @@ const handleKeyDown = async (e) => {
   const comboStr = parts.join("+");
 
   // Find and update the hotkey in localSettings
-  const targetHk = localSettings.hotkeys.find((h) => h.id === recordingActionId.value);
+  const targetHk = localSettings.hotkeys.find(
+    (h) => h.id === recordingActionId.value,
+  );
   if (targetHk) {
     targetHk.key_combination = comboStr;
     const res = await api.validateHotkey(comboStr, targetHk.id);
@@ -177,16 +187,76 @@ const handleResetDefaults = async () => {
   localSettings.default_profile = "preset-fps-250";
   // Reset hotkeys to standard defaults
   const defaults = [
-    { id: "brightness_up", action: "Brightness Up (+5%)", key_combination: "Ctrl+Alt+Up", enabled: true, description: "Increase backlight luminance" },
-    { id: "brightness_down", action: "Brightness Down (-5%)", key_combination: "Ctrl+Alt+Down", enabled: true, description: "Decrease backlight luminance" },
-    { id: "contrast_up", action: "Contrast Up (+5%)", key_combination: "Ctrl+Alt+Right", enabled: true, description: "Increase contrast ratio" },
-    { id: "contrast_down", action: "Contrast Down (-5%)", key_combination: "Ctrl+Alt+Left", enabled: true, description: "Decrease contrast ratio" },
-    { id: "preset_fps", action: "Preset: 250Hz Esports", key_combination: "Ctrl+Alt+1", enabled: true, description: "250Hz FPS gaming preset" },
-    { id: "preset_night", action: "Preset: Night Mode", key_combination: "Ctrl+Alt+2", enabled: true, description: "Low blue light eye care" },
-    { id: "preset_cinema", action: "Preset: Cinema 21:9", key_combination: "Ctrl+Alt+3", enabled: true, description: "21:9 Cinema movie preset" },
-    { id: "preset_work", action: "Preset: Standard Work", key_combination: "Ctrl+Alt+4", enabled: true, description: "Standard office preset" },
-    { id: "toggle_standby", action: "Toggle Standby / Sleep", key_combination: "Ctrl+Alt+End", enabled: true, description: "Put monitor into standby" },
-    { id: "toggle_window", action: "Show / Hide Window", key_combination: "Ctrl+Alt+M", enabled: true, description: "Toggle app window" },
+    {
+      id: "brightness_up",
+      action: "Brightness Up (+5%)",
+      key_combination: "Ctrl+Alt+Up",
+      enabled: true,
+      description: "Increase backlight luminance",
+    },
+    {
+      id: "brightness_down",
+      action: "Brightness Down (-5%)",
+      key_combination: "Ctrl+Alt+Down",
+      enabled: true,
+      description: "Decrease backlight luminance",
+    },
+    {
+      id: "contrast_up",
+      action: "Contrast Up (+5%)",
+      key_combination: "Ctrl+Alt+Right",
+      enabled: true,
+      description: "Increase contrast ratio",
+    },
+    {
+      id: "contrast_down",
+      action: "Contrast Down (-5%)",
+      key_combination: "Ctrl+Alt+Left",
+      enabled: true,
+      description: "Decrease contrast ratio",
+    },
+    {
+      id: "preset_fps",
+      action: "Preset: 250Hz Esports",
+      key_combination: "Ctrl+Alt+1",
+      enabled: true,
+      description: "250Hz FPS gaming preset",
+    },
+    {
+      id: "preset_night",
+      action: "Preset: Night Mode",
+      key_combination: "Ctrl+Alt+2",
+      enabled: true,
+      description: "Low blue light eye care",
+    },
+    {
+      id: "preset_cinema",
+      action: "Preset: Cinema 21:9",
+      key_combination: "Ctrl+Alt+3",
+      enabled: true,
+      description: "21:9 Cinema movie preset",
+    },
+    {
+      id: "preset_work",
+      action: "Preset: Standard Work",
+      key_combination: "Ctrl+Alt+4",
+      enabled: true,
+      description: "Standard office preset",
+    },
+    {
+      id: "toggle_standby",
+      action: "Toggle Standby / Sleep",
+      key_combination: "Ctrl+Alt+End",
+      enabled: true,
+      description: "Put monitor into standby",
+    },
+    {
+      id: "toggle_window",
+      action: "Show / Hide Window",
+      key_combination: "Ctrl+Alt+M",
+      enabled: true,
+      description: "Toggle app window",
+    },
   ];
   localSettings.hotkeys = defaults;
   await validateAllHotkeys();
@@ -208,9 +278,13 @@ const handleBackdropClick = (e) => {
   >
     <div class="flex flex-col h-[650px] max-h-[90vh]">
       <!-- Header -->
-      <div class="flex items-center justify-between px-6 py-4 border-b border-border">
+      <div
+        class="flex items-center justify-between px-6 py-4 border-b border-border"
+      >
         <div class="flex items-center space-x-3">
-          <div class="p-2 border rounded-lg bg-muted text-foreground border-border">
+          <div
+            class="p-2 border rounded-lg bg-muted text-foreground border-border"
+          >
             <Settings class="w-5 h-5" />
           </div>
           <div>
@@ -235,10 +309,16 @@ const handleBackdropClick = (e) => {
 
       <!-- Main Body with Tabs -->
       <div class="flex-1 overflow-hidden">
-        <Tabs v-model="activeTab" default-value="hotkeys" class="flex flex-col h-full">
+        <Tabs
+          v-model="activeTab"
+          default-value="hotkeys"
+          class="flex flex-col h-full"
+        >
           <!-- Tab Navigation Bar -->
           <div class="px-6 pt-3 border-b border-border bg-muted/20">
-            <TabsList class="w-full justify-start gap-1 bg-transparent p-0 h-auto">
+            <TabsList
+              class="justify-start w-full h-auto gap-1 p-0 bg-transparent"
+            >
               <TabsTrigger value="hotkeys" class="gap-1.5 py-2">
                 <Keyboard class="w-3.5 h-3.5" />
                 <span>Hotkeys & Shortcuts</span>
@@ -259,23 +339,41 @@ const handleBackdropClick = (e) => {
           </div>
 
           <!-- Content: Hotkeys Tab -->
-          <TabsContent value="hotkeys" class="flex-1 p-6 space-y-4 overflow-y-auto m-0">
-            <div class="flex items-center justify-between pb-2 border-b border-border">
+          <TabsContent
+            value="hotkeys"
+            class="flex-1 p-6 m-0 space-y-4 overflow-y-auto"
+          >
+            <div
+              class="flex items-center justify-between pb-2 border-b border-border"
+            >
               <div>
-                <h3 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <h3
+                  class="text-xs font-semibold tracking-wider uppercase text-muted-foreground"
+                >
                   Global System Keyboard Shortcuts
                 </h3>
                 <p class="text-[11px] text-muted-foreground">
-                  Adjust monitor parameters from anywhere without switching windows
+                  Adjust monitor parameters from anywhere without switching
+                  windows
                 </p>
               </div>
 
               <div class="flex items-center space-x-2">
-                <Button variant="outline" size="sm" @click="validateAllHotkeys" class="gap-1.5 text-xs">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  @click="validateAllHotkeys"
+                  class="gap-1.5 text-xs"
+                >
                   <ShieldCheck class="w-3.5 h-3.5 text-primary" />
                   <span>Verify Conflicts</span>
                 </Button>
-                <Button variant="ghost" size="sm" @click="handleResetDefaults" class="text-xs text-muted-foreground">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  @click="handleResetDefaults"
+                  class="text-xs text-muted-foreground"
+                >
                   <RotateCcw class="w-3.5 h-3.5 mr-1" />
                   <span>Defaults</span>
                 </Button>
@@ -287,12 +385,14 @@ const handleBackdropClick = (e) => {
               <div
                 v-for="hk in localSettings.hotkeys"
                 :key="hk.id"
-                class="flex flex-wrap items-center justify-between p-3 border rounded-lg bg-muted/30 border-border gap-2"
+                class="flex flex-wrap items-center justify-between gap-2 p-3 border rounded-lg bg-muted/30 border-border"
               >
                 <!-- Left: Action Name & Description -->
                 <div class="flex-1 min-w-[200px]">
                   <div class="flex items-center space-x-2">
-                    <span class="text-xs font-semibold text-foreground">{{ hk.action }}</span>
+                    <span class="text-xs font-semibold text-foreground">{{
+                      hk.action
+                    }}</span>
                     <!-- Status Conflict Badges -->
                     <template v-if="hk.enabled && validationResults[hk.id]">
                       <!-- OK Status -->
@@ -307,7 +407,10 @@ const handleBackdropClick = (e) => {
 
                       <!-- Internal App Conflict -->
                       <Badge
-                        v-else-if="validationResults[hk.id].status === 'internal_conflict'"
+                        v-else-if="
+                          validationResults[hk.id].status ===
+                          'internal_conflict'
+                        "
                         variant="outline"
                         class="text-[10px] bg-amber-500/10 text-amber-500 border-amber-500/30 gap-1"
                         :title="validationResults[hk.id].message"
@@ -318,7 +421,9 @@ const handleBackdropClick = (e) => {
 
                       <!-- System OS Conflict -->
                       <Badge
-                        v-else-if="validationResults[hk.id].status === 'system_conflict'"
+                        v-else-if="
+                          validationResults[hk.id].status === 'system_conflict'
+                        "
                         variant="outline"
                         class="text-[10px] bg-destructive/10 text-destructive border-destructive/30 gap-1"
                         :title="validationResults[hk.id].message"
@@ -348,7 +453,9 @@ const handleBackdropClick = (e) => {
                         : 'bg-background hover:bg-accent text-foreground border-border',
                     ]"
                   >
-                    <span v-if="recordingActionId === hk.id">Press key combo...</span>
+                    <span v-if="recordingActionId === hk.id"
+                      >Press key combo...</span
+                    >
                     <span v-else>{{ hk.key_combination }}</span>
                   </Button>
 
@@ -364,7 +471,11 @@ const handleBackdropClick = (e) => {
 
                 <!-- Error Message banner if conflict -->
                 <div
-                  v-if="hk.enabled && validationResults[hk.id] && !validationResults[hk.id].valid"
+                  v-if="
+                    hk.enabled &&
+                    validationResults[hk.id] &&
+                    !validationResults[hk.id].valid
+                  "
                   class="w-full text-[11px] px-2.5 py-1 rounded bg-destructive/10 border border-destructive/20 text-destructive flex items-center gap-1.5"
                 >
                   <AlertCircle class="w-3.5 h-3.5 shrink-0" />
@@ -375,14 +486,22 @@ const handleBackdropClick = (e) => {
           </TabsContent>
 
           <!-- Content: System & Tray Tab -->
-          <TabsContent value="system" class="flex-1 p-6 space-y-5 overflow-y-auto m-0">
+          <TabsContent
+            value="system"
+            class="flex-1 p-6 m-0 space-y-5 overflow-y-auto"
+          >
             <div class="space-y-4">
               <!-- Autostart -->
-              <div class="flex items-center justify-between p-4 border rounded-lg bg-muted/30 border-border">
+              <div
+                class="flex items-center justify-between p-4 border rounded-lg bg-muted/30 border-border"
+              >
                 <div class="space-y-0.5">
-                  <label class="text-sm font-semibold text-foreground">Launch on Windows Startup</label>
+                  <label class="text-sm font-semibold text-foreground"
+                    >Launch on Windows Startup</label
+                  >
                   <p class="text-xs text-muted-foreground">
-                    Automatically starts monitor control utility when your computer boots
+                    Automatically starts monitor control utility when your
+                    computer boots
                   </p>
                 </div>
                 <Switch
@@ -392,11 +511,16 @@ const handleBackdropClick = (e) => {
               </div>
 
               <!-- Close to Tray -->
-              <div class="flex items-center justify-between p-4 border rounded-lg bg-muted/30 border-border">
+              <div
+                class="flex items-center justify-between p-4 border rounded-lg bg-muted/30 border-border"
+              >
                 <div class="space-y-0.5">
-                  <label class="text-sm font-semibold text-foreground">Close to System Tray</label>
+                  <label class="text-sm font-semibold text-foreground"
+                    >Close to System Tray</label
+                  >
                   <p class="text-xs text-muted-foreground">
-                    Clicking the window close (X) button minimizes to the system notification area
+                    Clicking the window close (X) button minimizes to the system
+                    notification area
                   </p>
                 </div>
                 <Switch
@@ -406,11 +530,16 @@ const handleBackdropClick = (e) => {
               </div>
 
               <!-- Start Minimized -->
-              <div class="flex items-center justify-between p-4 border rounded-lg bg-muted/30 border-border">
+              <div
+                class="flex items-center justify-between p-4 border rounded-lg bg-muted/30 border-border"
+              >
                 <div class="space-y-0.5">
-                  <label class="text-sm font-semibold text-foreground">Start Minimized</label>
+                  <label class="text-sm font-semibold text-foreground"
+                    >Start Minimized</label
+                  >
                   <p class="text-xs text-muted-foreground">
-                    Launch silently in the background tray without popping up the main window
+                    Launch silently in the background tray without popping up
+                    the main window
                   </p>
                 </div>
                 <Switch
@@ -420,12 +549,17 @@ const handleBackdropClick = (e) => {
               </div>
 
               <!-- Default Profile on Startup -->
-              <div class="p-4 border rounded-lg bg-muted/30 border-border space-y-2">
-                <label class="text-sm font-semibold text-foreground block">Default Startup Preset</label>
+              <div
+                class="p-4 space-y-2 border rounded-lg bg-muted/30 border-border"
+              >
+                <label class="block text-sm font-semibold text-foreground"
+                  >Default Startup Preset</label
+                >
                 <p class="text-xs text-muted-foreground">
-                  Select which profile hardware settings to automatically apply upon application launch
+                  Select which profile hardware settings to automatically apply
+                  upon application launch
                 </p>
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                <div class="grid grid-cols-2 gap-2 pt-1 sm:grid-cols-4">
                   <Button
                     v-for="prof in [
                       { id: 'preset-fps-250', label: '250Hz Esports' },
@@ -452,18 +586,27 @@ const handleBackdropClick = (e) => {
           </TabsContent>
 
           <!-- Content: Hardware DDC/CI Tab -->
-          <TabsContent value="hardware" class="flex-1 p-6 space-y-5 overflow-y-auto m-0">
+          <TabsContent
+            value="hardware"
+            class="flex-1 p-6 m-0 space-y-5 overflow-y-auto"
+          >
             <div class="space-y-4">
               <!-- I2C Delay Slider -->
-              <div class="p-4 border rounded-lg bg-muted/30 border-border space-y-3">
+              <div
+                class="p-4 space-y-3 border rounded-lg bg-muted/30 border-border"
+              >
                 <div class="flex items-center justify-between">
                   <div>
-                    <label class="text-sm font-semibold text-foreground">I2C Bus Command Delay</label>
+                    <label class="text-sm font-semibold text-foreground"
+                      >I2C Bus Command Delay</label
+                    >
                     <p class="text-xs text-muted-foreground">
                       Rate-limiting delay between DDC/CI register writes
                     </p>
                   </div>
-                  <span class="font-mono text-xs font-bold px-2.5 py-1 rounded border bg-background border-border text-foreground">
+                  <span
+                    class="font-mono text-xs font-bold px-2.5 py-1 rounded border bg-background border-border text-foreground"
+                  >
                     {{ localSettings.i2c_delay_ms }} ms
                   </span>
                 </div>
@@ -477,20 +620,29 @@ const handleBackdropClick = (e) => {
                 />
 
                 <p class="text-[11px] text-muted-foreground">
-                  💡 <strong>Recommended: 35ms</strong>. The ThundeRobot DQ34C240L uses an MStar scaler. Setting below 25ms can cause command drops during rapid slider movement.
+                  💡 <strong>Recommended: 35ms</strong>. The ThundeRobot
+                  DQ34C240L uses an MStar scaler. Setting below 25ms can cause
+                  command drops during rapid slider movement.
                 </p>
               </div>
 
               <!-- Telemetry Polling -->
-              <div class="p-4 border rounded-lg bg-muted/30 border-border space-y-3">
+              <div
+                class="p-4 space-y-3 border rounded-lg bg-muted/30 border-border"
+              >
                 <div class="flex items-center justify-between">
                   <div>
-                    <label class="text-sm font-semibold text-foreground">Live Telemetry Polling</label>
+                    <label class="text-sm font-semibold text-foreground"
+                      >Live Telemetry Polling</label
+                    >
                     <p class="text-xs text-muted-foreground">
-                      Frequency to query live vertical refresh rate (250Hz) and usage hours
+                      Frequency to query live vertical refresh rate (250Hz) and
+                      usage hours
                     </p>
                   </div>
-                  <span class="font-mono text-xs font-bold px-2.5 py-1 rounded border bg-background border-border text-foreground">
+                  <span
+                    class="font-mono text-xs font-bold px-2.5 py-1 rounded border bg-background border-border text-foreground"
+                  >
                     {{ localSettings.telemetry_interval_sec }} sec
                   </span>
                 </div>
@@ -500,20 +652,30 @@ const handleBackdropClick = (e) => {
                   :min="1"
                   :max="10"
                   :step="1"
-                  @update:model-value="localSettings.telemetry_interval_sec = $event[0]"
+                  @update:model-value="
+                    localSettings.telemetry_interval_sec = $event[0]
+                  "
                 />
               </div>
             </div>
           </TabsContent>
 
           <!-- Content: Phone Remote Tab -->
-          <TabsContent value="remote" class="flex-1 p-6 space-y-5 overflow-y-auto m-0">
+          <TabsContent
+            value="remote"
+            class="flex-1 p-6 m-0 space-y-5 overflow-y-auto"
+          >
             <div class="space-y-4">
-              <div class="flex items-center justify-between p-4 border rounded-lg bg-muted/30 border-border">
+              <div
+                class="flex items-center justify-between p-4 border rounded-lg bg-muted/30 border-border"
+              >
                 <div class="space-y-0.5">
-                  <label class="text-sm font-semibold text-foreground">Enable Mobile Wi-Fi Server</label>
+                  <label class="text-sm font-semibold text-foreground"
+                    >Enable Mobile Wi-Fi Server</label
+                  >
                   <p class="text-xs text-muted-foreground">
-                    Permits smartphones on your local Wi-Fi to control the monitor
+                    Permits smartphones on your local Wi-Fi to control the
+                    monitor
                   </p>
                 </div>
                 <Switch
@@ -522,9 +684,13 @@ const handleBackdropClick = (e) => {
                 />
               </div>
 
-              <div class="p-4 border rounded-lg bg-muted/30 border-border space-y-2">
-                <label class="text-sm font-semibold text-foreground block">HTTP Server Port</label>
-                <div class="flex items-center space-x-2 max-w-xs">
+              <div
+                class="p-4 space-y-2 border rounded-lg bg-muted/30 border-border"
+              >
+                <label class="block text-sm font-semibold text-foreground"
+                  >HTTP Server Port</label
+                >
+                <div class="flex items-center max-w-xs space-x-2">
                   <input
                     type="number"
                     v-model.number="localSettings.phone_remote_port"
@@ -532,14 +698,30 @@ const handleBackdropClick = (e) => {
                     max="65535"
                     class="w-full bg-background border border-input rounded-md px-3 py-1.5 text-sm font-mono text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
-                  <Badge variant="secondary" class="font-mono text-xs">Default 8000</Badge>
+                  <Badge variant="secondary" class="font-mono text-xs"
+                    >Default 8000</Badge
+                  >
                 </div>
               </div>
 
-              <div class="p-4 border rounded-lg bg-muted/40 border-border text-xs text-muted-foreground space-y-1.5">
-                <p class="font-semibold text-foreground">Pairing Information:</p>
-                <p>Local IP: <span class="font-mono text-foreground font-semibold">{{ monitorInfo?.lan_ip || '127.0.0.1' }}</span></p>
-                <p>Phone URL: <span class="font-mono text-foreground font-semibold">{{ monitorInfo?.phone_url || 'http://localhost:8000' }}</span></p>
+              <div
+                class="p-4 border rounded-lg bg-muted/40 border-border text-xs text-muted-foreground space-y-1.5"
+              >
+                <p class="font-semibold text-foreground">
+                  Pairing Information:
+                </p>
+                <p>
+                  Local IP:
+                  <span class="font-mono font-semibold text-foreground">{{
+                    monitorInfo?.lan_ip || "127.0.0.1"
+                  }}</span>
+                </p>
+                <p>
+                  Phone URL:
+                  <span class="font-mono font-semibold text-foreground">{{
+                    monitorInfo?.phone_url || "http://localhost:8000"
+                  }}</span>
+                </p>
               </div>
             </div>
           </TabsContent>
@@ -547,17 +729,31 @@ const handleBackdropClick = (e) => {
       </div>
 
       <!-- Footer Buttons -->
-      <div class="flex items-center justify-between px-6 py-3.5 border-t border-border bg-muted/20">
+      <div
+        class="flex items-center justify-between px-6 py-3.5 border-t border-border bg-muted/20"
+      >
         <Button variant="ghost" size="sm" @click="emit('close')">
           Cancel
         </Button>
 
         <div class="flex items-center space-x-2">
-          <Button variant="default" size="sm" @click="handleSave" :disabled="isSaving" class="gap-1.5 min-w-[120px]">
+          <Button
+            variant="default"
+            size="sm"
+            @click="handleSave"
+            :disabled="isSaving"
+            class="gap-1.5 min-w-[120px]"
+          >
             <Check v-if="saveSuccess" class="w-4 h-4 text-emerald-400" />
             <RefreshCw v-else-if="isSaving" class="w-4 h-4 animate-spin" />
             <Save v-else class="w-4 h-4" />
-            <span>{{ saveSuccess ? "Saved!" : isSaving ? "Saving..." : "Save Preferences" }}</span>
+            <span>{{
+              saveSuccess
+                ? "Saved!"
+                : isSaving
+                  ? "Saving..."
+                  : "Save Preferences"
+            }}</span>
           </Button>
         </div>
       </div>
