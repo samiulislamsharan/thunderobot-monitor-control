@@ -1,5 +1,6 @@
 pub mod ddcci;
 pub mod profiles;
+pub mod server;
 pub mod settings;
 
 use ddcci::DdcciController;
@@ -18,7 +19,14 @@ pub struct AppState {
 }
 
 #[tauri::command]
-fn get_monitor_info(_state: State<AppState>) -> serde_json::Value {
+fn get_monitor_info(state: State<AppState>) -> serde_json::Value {
+    let port = {
+        let set = state.settings.lock().unwrap();
+        set.phone_remote_port
+    };
+    let lan_ip = server::get_lan_ip();
+    let phone_url = format!("http://{}:{}", lan_ip, port);
+
     serde_json::json!({
         "model": "DQ34C240L",
         "vendor": "ThundeRobot",
@@ -28,10 +36,10 @@ fn get_monitor_info(_state: State<AppState>) -> serde_json::Value {
         "curved": true,
         "panel_type": "Fast VA",
         "aspect_ratio": "21:9 Ultrawide",
-        "lan_ip": "127.0.0.1",
-        "port": 8000,
-        "local_url": "http://localhost:8000",
-        "phone_url": "http://localhost:8000",
+        "lan_ip": lan_ip,
+        "port": port,
+        "local_url": format!("http://localhost:{}", port),
+        "phone_url": phone_url,
         "telemetry": {
             "v_freq": 250,
             "h_freq": 473.2,
@@ -77,7 +85,10 @@ fn get_features(state: State<AppState>) -> Result<serde_json::Value, String> {
     }))
 }
 
-fn resolve_feature_code(name: Option<&str>, code: Option<&serde_json::Value>) -> Result<u8, String> {
+pub fn resolve_feature_code(
+    name: Option<&str>,
+    code: Option<&serde_json::Value>,
+) -> Result<u8, String> {
     if let Some(n) = name {
         match n {
             "brightness" => return Ok(0x10),
@@ -283,7 +294,8 @@ pub fn toggle_quickpanel_window(app: &tauri::AppHandle) {
                 // Position in bottom-right corner right above taskbar
                 let x = (size.width as i32) - width - (16.0 * scale) as i32;
                 let y = (size.height as i32) - height - (60.0 * scale) as i32;
-                let _ = panel.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+                let _ =
+                    panel.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
             }
             let _ = panel.show();
             let _ = panel.set_focus();
@@ -314,8 +326,19 @@ fn hide_quickpanel_cmd(app: tauri::AppHandle) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let settings = load_settings();
+    let phone_enabled = settings.phone_remote_enabled;
+    let phone_port = settings.phone_remote_port;
+
     let ddcci = Arc::new(DdcciController::new(settings.i2c_delay_ms));
     let settings_arc = Arc::new(Mutex::new(settings));
+
+    if phone_enabled {
+        let s_ddcci = ddcci.clone();
+        let s_settings = settings_arc.clone();
+        std::thread::spawn(move || {
+            server::start_server(s_ddcci, s_settings, phone_port);
+        });
+    }
 
     let app_state = AppState {
         ddcci: ddcci.clone(),
@@ -332,18 +355,36 @@ pub fn run() {
         ))
         .setup(|app| {
             // Build Native System Tray Menu
-            let quick_item =
-                MenuItem::with_id(app, "quick_panel", "Quick Panel (Sliders & Presets)", true, None::<&str>)?;
-            let main_item =
-                MenuItem::with_id(app, "main_window", "Full Controller Dashboard", true, None::<&str>)?;
+            let quick_item = MenuItem::with_id(
+                app,
+                "quick_panel",
+                "Quick Panel (Sliders & Presets)",
+                true,
+                None::<&str>,
+            )?;
+            let main_item = MenuItem::with_id(
+                app,
+                "main_window",
+                "Full Controller Dashboard",
+                true,
+                None::<&str>,
+            )?;
             let preset_fps =
                 MenuItem::with_id(app, "fps_250", "Preset: 250Hz Esports", true, None::<&str>)?;
             let preset_night =
                 MenuItem::with_id(app, "night", "Preset: Night Mode", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
 
-            let menu =
-                Menu::with_items(app, &[&quick_item, &main_item, &preset_fps, &preset_night, &quit_item])?;
+            let menu = Menu::with_items(
+                app,
+                &[
+                    &quick_item,
+                    &main_item,
+                    &preset_fps,
+                    &preset_night,
+                    &quit_item,
+                ],
+            )?;
 
             let mut tray_builder = TrayIconBuilder::new()
                 .menu(&menu)
@@ -378,22 +419,20 @@ pub fn run() {
                     }
                     _ => {}
                 })
-                .on_tray_icon_event(|tray, event| {
-                    match event {
-                        TrayIconEvent::Click {
-                            button: MouseButton::Left,
-                            button_state: MouseButtonState::Up,
-                            ..
-                        } => {
-                            let app = tray.app_handle();
-                            toggle_quickpanel_window(app);
-                        }
-                        TrayIconEvent::DoubleClick { .. } => {
-                            let app = tray.app_handle();
-                            show_main_window(app);
-                        }
-                        _ => {}
+                .on_tray_icon_event(|tray, event| match event {
+                    TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } => {
+                        let app = tray.app_handle();
+                        toggle_quickpanel_window(app);
                     }
+                    TrayIconEvent::DoubleClick { .. } => {
+                        let app = tray.app_handle();
+                        show_main_window(app);
+                    }
+                    _ => {}
                 })
                 .build(app)?;
 
