@@ -1,67 +1,119 @@
-# ThundeRobot DQ34C240L DDC/CI Web Control Suite
+# ThundeRobot DQ34C240L Monitor Control Suite
 
-A modern, high-performance web application to control your **ThundeRobot DQ34C240L 34″ Fast VA 1440p 250Hz Curved Gaming Monitor** directly from your web browser or smartphone over local Wi-Fi, completely replacing the awkward physical joystick OSD button.
+[![GitHub Release](https://img.shields.io/github/v/release/samiulislamsharan/thunderobot-monitor-control?style=for-the-badge&color=00f0ff)](https://github.com/samiulislamsharan/thunderobot-monitor-control/releases/latest)
+[![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11%20(x64)-blue?style=for-the-badge&logo=windows)](https://github.com/samiulislamsharan/thunderobot-monitor-control/releases/latest)
+[![Tauri 2.0](https://img.shields.io/badge/Desktop-Tauri%202.0%20(Rust)-ea580c?style=for-the-badge&logo=tauri)](https://tauri.app)
+[![Vue.js 3](https://img.shields.io/badge/Frontend-Vue.js%203%20%2B%20Tailwind-10b981?style=for-the-badge&logo=vuedotjs)](https://vuejs.org)
+[![License](https://img.shields.io/badge/License-MIT-purple?style=for-the-badge)](LICENSE)
 
-![ThundeRobot DQ34C240L](https://img.shields.io/badge/Monitor-DQ34C240L%2034″-00f0ff?style=for-the-badge)
-![Refresh Rate](https://img.shields.io/badge/Refresh%20Rate-250Hz%20Overclock-a855f7?style=for-the-badge)
-![Vue.js 3](https://img.shields.io/badge/Frontend-Vue.js%203%20%2B%20Tailwind-10b981?style=for-the-badge)
-![FastAPI](https://img.shields.io/badge/Backend-FastAPI%20%2B%20DXVA2-38bdf8?style=for-the-badge)
-
----
-
-## Features
-
-- **Direct Hardware DDC/CI Control**: Native Windows DXVA2 (`dxva2.dll`) communication over DisplayPort/HDMI I2C bus with thread-safe rate-limiting.
-- **Picture & Luminance**: Silky-smooth debounced Brightness and Contrast sliders with live numerical indicators, quick-step buttons, and factory reset.
-- **Calibrated Picture Modes**: Instant switching between **Standard**, **Movie**, **Game**, **FPS**, and **RTS** modes (`0xDC`).
-- **Color Calibration**: Color temperature presets (6500K Warm, 7500K Normal, 9300K Cool, User RGB) with fine-grained Red, Green, and Blue Gain sliders.
-- **Gaming & 250Hz Tuner**: Pixel Overdrive tuning (Levels 0–5), Sharpness / Black Equalizer (`0x3E`), and 1ms MPRT Motion Blur Strobe toggle (`0xE3`).
-- **Input Source Switching**: Switch between DisplayPort 1 (`0x0F`), DisplayPort 2 (`0x10`), HDMI 1 (`0x11`), and HDMI 2 (`0x12`).
-- **One-Click Presets & Custom Profiles**: Built-in esports FPS, Night Mode (Low Blue Light), Cinema, and Standard presets, plus the ability to snapshot and save custom presets.
-- **📱 Phone Remote over Wi-Fi**:
-  - Automatically binds to `0.0.0.0:8000` on your local network.
-  - Generates an in-browser **QR Code** for instant camera scanning from your phone.
-  - Fully touch-optimized responsive layout.
-  - Tap **"Add to Home Screen"** on iOS or Android for a full-screen, native PWA app experience!
-- **Power Management & Safety**: Sleep / Standby (`0x04`) and Power Off (`0x05`) with double-confirmation dialogs.
-- **Advanced Hex VCP Inspector**: Direct hex register reader and writer for experimenting with any MCCS / MStar DDC/CI opcode.
+A modern, high-performance native desktop application and local Wi-Fi remote to control your **ThundeRobot DQ34C240L 34″ Fast VA 1440p 250Hz Curved Gaming Monitor** directly via hardware DDC/CI commands, completely replacing the awkward physical joystick OSD button.
 
 ---
 
-## Quick Start
+## ⚡ Highlights & Key Features
 
-### Option 1: Double-Click Launcher (Windows)
-Simply double-click **`start.bat`** in the project directory.
+* **🖥️ Native Windows Desktop App (Tauri 2.0)**:
+  * Minimal resource footprint (~40 MB RAM, ~10 MB binary) with instant startup.
+  * Direct Windows DXVA2 (`dxva2.dll`) hardware control over DisplayPort / HDMI I2C lines.
+* **⚡ Taskbar System Tray Quick Panel**:
+  * Left-click the taskbar tray icon to reveal a borderless quick-control panel right above your system tray.
+  * Adjust Brightness, Contrast, Overdrive level, and Presets on the fly without interrupting full-screen games.
+  * Auto-hides automatically when clicking outside.
+* **🖱️ Mouse Wheel Slider Adjustment**:
+  * Hover over any slider (Brightness or Contrast) in either the Quick Panel or Main Dashboard and use your mouse wheel for granular adjustments (±2% per tick, ±5% with Shift).
+* **📱 Embedded Smartphone Remote over Wi-Fi**:
+  * Embedded multi-threaded HTTP server (`tiny_http` + `rust-embed`) inside the binary—**no Python, Uvicorn, or external dependencies required**.
+  * Dynamic LAN IP discovery (`192.168.x.x`) with in-app scannable **QR Code** pairing.
+  * Progressive Web App (PWA) ready: tap **"Add to Home Screen"** on iOS or Android for a full-screen native mobile experience.
+* **🎮 250Hz Gaming Tuner & Factory Presets**:
+  * Instant switching between **250Hz Esports**, **Cinema 21:9**, **Night Mode**, and **sRGB Content**.
+  * Pixel Overdrive tuning (Levels 0–5), Black Equalizer / Sharpness (`0x3E`), and 1ms MPRT Strobe toggle (`0xE3`).
+  * Custom preset snapshots persisted in `%APPDATA%\thunderobot-monitor-control`.
 
-### Option 2: Python Command Line
-```powershell
-python run.py
+---
+
+## 🏗️ Architecture Overview
+
+The application features a hybrid architecture enabling both native desktop speed and smartphone LAN remote control from a single binary:
+
+```mermaid
+flowchart TB
+    subgraph Clients ["Client & Presentation Layer"]
+        MainUI["Full Controller Dashboard (App.vue)"]
+        QuickUI["Taskbar Quick Panel (QuickPanel.vue)"]
+        PhoneUI["Mobile Browser / PWA (iOS & Android)"]
+    end
+
+    subgraph FrontendCore ["Universal Frontend (Vue 3 + Vite + Tailwind)"]
+        StateMgr["Monitor State & Presets (useMonitor.js)"]
+        Adapter["Universal API Adapter (adapter.js)"]
+        MainUI --> StateMgr
+        QuickUI --> StateMgr
+        PhoneUI --> StateMgr
+        StateMgr --> Adapter
+    end
+
+    subgraph NativeCore ["Tauri 2.0 Rust Core (src-tauri)"]
+        IPCBridge["Tauri IPC Commands (lib.rs)"]
+        TrayMgr["System Tray & Window Manager (lib.rs)"]
+        ProfileMgr["Profile Persistence (profiles.rs)"]
+        Hotkeys["Global Shortcuts (tauri-plugin-global-shortcut)"]
+        EmbeddedServer["Embedded LAN Server (server.rs)"]
+        
+        Adapter -->|Native IPC| IPCBridge
+        Adapter -->|HTTP REST via Wi-Fi| EmbeddedServer
+        
+        IPCBridge --> ProfileMgr
+        EmbeddedServer --> ProfileMgr
+        TrayMgr -.-> QuickUI
+        TrayMgr -.-> MainUI
+    end
+
+    subgraph HardwareLayer ["Hardware Abstraction (ddcci.rs)"]
+        DdcciController["DdcciController (Mutex Rate-Limiter)"]
+        WinAPI["Windows DXVA2 API (dxva2.dll)"]
+        
+        IPCBridge --> DdcciController
+        EmbeddedServer --> DdcciController
+        DdcciController --> WinAPI
+    end
+
+    subgraph PhysicalDisplay ["Physical Hardware"]
+        Monitor["ThundeRobot DQ34C240L Monitor (34″ Fast VA 250Hz Curved)"]
+        WinAPI -->|I2C DDC/CI Packets| Monitor
+    end
 ```
 
-The script will automatically:
-1. Verify backend dependencies and compile the Vue 3 frontend with Vite (if not already built).
-2. Detect your local LAN IP address (e.g. `192.168.50.143`).
-3. Launch the server on `0.0.0.0:8000`.
-4. Open your default browser to `http://localhost:8000`.
+---
+
+## 🚀 Installation & Downloads
+
+Download the latest version from the **[Releases Page](https://github.com/samiulislamsharan/thunderobot-monitor-control/releases/latest)**:
+
+| Format | File | Description |
+| :--- | :--- | :--- |
+| **Setup Wizard** | `thunderobot-monitor-control_<ver>_x64-setup.exe` | Standard Windows installer with desktop and Start Menu shortcuts. |
+| **Windows MSI** | `thunderobot-monitor-control_<ver>_x64_en-US.msi` | Windows Installer package suitable for automated enterprise deployment. |
+| **Portable** | `thunderobot-monitor-control.exe` | Single standalone executable—run directly without installation. |
 
 ---
 
-## 📱 Controlling from Your Smartphone
+## 📱 Smartphone Setup (30 Seconds)
 
-1. Ensure your smartphone is connected to the same Wi-Fi network as your PC.
-2. In the desktop web application header, click **"📱 Phone Remote"**.
-3. Scan the displayed **QR Code** using your phone's camera.
-4. *(Optional)* In your phone's browser, tap **"Add to Home Screen"** to install it as a standalone app icon.
+1. Connect your phone to the same Wi-Fi router as your PC.
+2. In the desktop application header, click **"📱 Phone Remote"**.
+3. Scan the displayed **QR Code** with your smartphone camera.
+4. *(Optional)* In your phone's browser, tap **"Add to Home Screen"** to install it as an app icon.
 
 ---
 
-## Reverse-Engineered DDC/CI VCP Map for ThundeRobot DQ34C240L
+## 🗺️ Reverse-Engineered DDC/CI VCP Register Map
 
 | VCP Code | Name | Range / Values | Type | Description |
 |---|---|---|---|---|
 | **0x10** | Luminance | 0 – 100 | Continuous | Backlight brightness |
 | **0x12** | Contrast | 0 – 100 | Continuous | Contrast ratio |
-| **0x14** | Color Temperature | `0x05`, `0x06`, `0x08`, `0x0B` | Discrete | 6500K, 7500K, 9300K, User RGB |
+| **0x14** | Color Temperature | `0x05`, `0x06`, `0x08`, `0x0B` | Discrete | 6500K Warm, 7500K Normal, 9300K Cool, User RGB |
 | **0x16** | Red Gain | 0 – 100 | Continuous | Red channel multiplier |
 | **0x18** | Green Gain | 0 – 100 | Continuous | Green channel multiplier |
 | **0x1A** | Blue Gain | 0 – 100 | Continuous | Blue channel multiplier |
@@ -84,47 +136,39 @@ The script will automatically:
 
 ---
 
-## Project Structure
+## 🛠️ Building from Source
 
+### Prerequisites
+* Windows 10/11 (x64)
+* [Node.js 18+](https://nodejs.org/) & [Rust](https://rustup.rs/)
+* Visual Studio 2022 Community with **Desktop development with C++**
+
+### Development Mode
+```powershell
+# Clone and install dependencies
+git clone https://github.com/samiulislamsharan/thunderobot-monitor-control.git
+cd thunderobot-monitor-control
+npm install
+npm --prefix frontend install
+
+# Run native desktop app with live reload
+npm run tauri:dev
 ```
-thunderobot-monitor-control/
-├── PLAN.md                   # Full architecture and DDC/CI specification
-├── README.md                 # Project guide and documentation
-├── run.py                    # Main launcher (checks, builds & runs server)
-├── start.bat                 # 1-click Windows runner
-├── backend/
-│   ├── ddcci.py              # Win32 DXVA2 ctypes engine & I2C rate limiter
-│   ├── monitor_detector.py   # EDID, model resolution & LAN IP resolver
-│   ├── profiles.py           # Presets manager (persists to profiles.json)
-│   ├── schemas.py            # Pydantic request & response models
-│   ├── main.py               # FastAPI application & static SPA server
-│   └── requirements.txt      # Python dependencies
-├── frontend/
-│   ├── index.html            # PWA-ready HTML5 entry
-│   ├── vite.config.js        # Vite + Vue 3 config with proxy
-│   ├── tailwind.config.js    # Cyberpunk/gaming dark theme config
-│   ├── src/
-│   │   ├── main.js           # Vue 3 entry point
-│   │   ├── App.vue           # Root layout & modal coordinator
-│   │   ├── style.css         # Custom range sliders, backdrop blur & scrollbars
-│   │   ├── composables/
-│   │   │   └── useMonitor.js # Reactive monitor state & debounced updates
-│   │   └── components/
-│   │       ├── Header.vue            # Live 250Hz badge, telemetry & pairing
-│   │       ├── PresetsBar.vue        # 1-click profiles & custom preset cards
-│   │       ├── PictureControls.vue   # Brightness, contrast & picture modes
-│   │       ├── ColorControls.vue     # Color temperature & RGB gain sliders
-│   │       ├── GamingControls.vue    # Overdrive, sharpness/black EQ & MPRT
-│   │       ├── InputPower.vue        # Input switching & power management
-│   │       ├── RawVcpInspector.vue   # Direct hex VCP reader/writer
-│   │       ├── PhonePairModal.vue    # Scannable QR code & LAN URL modal
-│   │       ├── ConfirmModal.vue      # HTML5 <dialog> safety confirmation
-│   │       └── SaveProfileModal.vue  # Custom preset creator modal
-└── tests/
-    └── test_backend.py       # Automated hardware & endpoint verification
+
+### Production Build
+```powershell
+# Compiles frontend, embeds assets, and builds installers
+npm run tauri:build
 ```
 
 ---
 
-## License
-MIT
+## 🤝 Contributing
+
+We welcome contributions! Please review our **[Contribution Guidelines](CONTRIBUTING.md)** for architecture details, coding conventions, and PR workflows.
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
