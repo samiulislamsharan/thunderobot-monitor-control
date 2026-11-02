@@ -1,13 +1,15 @@
 pub mod ddcci;
+pub mod profiles;
 pub mod settings;
 
 use ddcci::DdcciController;
+use profiles::{apply_profile_to_monitor, load_profiles, save_profiles, Profile};
 use settings::{load_settings, save_settings, validate_hotkey_against_settings, AppSettings};
 use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuItem},
-    tray::{TrayIconBuilder, TrayIconEvent},
-    Emitter, Manager, State,
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    Manager, State,
 };
 
 pub struct AppState {
@@ -16,7 +18,7 @@ pub struct AppState {
 }
 
 #[tauri::command]
-fn get_monitor_info(state: State<AppState>) -> serde_json::Value {
+fn get_monitor_info(_state: State<AppState>) -> serde_json::Value {
     serde_json::json!({
         "model": "DQ34C240L",
         "vendor": "ThundeRobot",
@@ -47,6 +49,9 @@ fn get_features(state: State<AppState>) -> Result<serde_json::Value, String> {
     let red_gain = state.ddcci.get_vcp(0x16).map(|(c, _)| c).unwrap_or(50);
     let green_gain = state.ddcci.get_vcp(0x18).map(|(c, _)| c).unwrap_or(50);
     let blue_gain = state.ddcci.get_vcp(0x1A).map(|(c, _)| c).unwrap_or(50);
+    let red_black_level = state.ddcci.get_vcp(0x6C).map(|(c, _)| c).unwrap_or(50);
+    let green_black_level = state.ddcci.get_vcp(0x6E).map(|(c, _)| c).unwrap_or(50);
+    let blue_black_level = state.ddcci.get_vcp(0x70).map(|(c, _)| c).unwrap_or(50);
     let input_source = state.ddcci.get_vcp(0x60).map(|(c, _)| c).unwrap_or(15);
     let overdrive = state.ddcci.get_vcp(0x68).map(|(c, _)| c).unwrap_or(0);
     let gaming_sharpness = state.ddcci.get_vcp(0x3E).map(|(c, _)| c).unwrap_or(50);
@@ -61,6 +66,9 @@ fn get_features(state: State<AppState>) -> Result<serde_json::Value, String> {
             "red_gain": { "value": red_gain, "hex": "0x16" },
             "green_gain": { "value": green_gain, "hex": "0x18" },
             "blue_gain": { "value": blue_gain, "hex": "0x1A" },
+            "red_black_level": { "value": red_black_level, "hex": "0x6C" },
+            "green_black_level": { "value": green_black_level, "hex": "0x6E" },
+            "blue_black_level": { "value": blue_black_level, "hex": "0x70" },
             "input_source": { "value": input_source, "hex": "0x60" },
             "overdrive": { "value": overdrive, "hex": "0x68" },
             "gaming_sharpness": { "value": gaming_sharpness, "hex": "0x3E" },
@@ -69,50 +77,163 @@ fn get_features(state: State<AppState>) -> Result<serde_json::Value, String> {
     }))
 }
 
+fn resolve_feature_code(name: Option<&str>, code: Option<&serde_json::Value>) -> Result<u8, String> {
+    if let Some(n) = name {
+        match n {
+            "brightness" => return Ok(0x10),
+            "contrast" => return Ok(0x12),
+            "picture_mode" => return Ok(0xDC),
+            "color_preset" => return Ok(0x14),
+            "red_gain" => return Ok(0x16),
+            "green_gain" => return Ok(0x18),
+            "blue_gain" => return Ok(0x1A),
+            "red_black_level" => return Ok(0x6C),
+            "green_black_level" => return Ok(0x6E),
+            "blue_black_level" => return Ok(0x70),
+            "input_source" => return Ok(0x60),
+            "overdrive" => return Ok(0x68),
+            "gaming_sharpness" => return Ok(0x3E),
+            "mprt_aim" => return Ok(0xE3),
+            "orientation" => return Ok(0xAA),
+            "power_mode" => return Ok(0xD6),
+            "reset_luminance" => return Ok(0x05),
+            "reset_color" => return Ok(0x08),
+            "reset_factory" => return Ok(0x04),
+            s => {
+                if let Ok(c) = s.parse::<u8>() {
+                    return Ok(c);
+                }
+                if s.starts_with("0x") || s.starts_with("0X") {
+                    if let Ok(c) = u8::from_str_radix(&s[2..], 16) {
+                        return Ok(c);
+                    }
+                }
+            }
+        }
+    }
+    if let Some(c) = code {
+        if let Some(n) = c.as_u64() {
+            return Ok(n as u8);
+        }
+        if let Some(s) = c.as_str() {
+            return resolve_feature_code(Some(s), None);
+        }
+    }
+    Err("Unknown or missing feature identifier".into())
+}
+
 #[tauri::command]
 fn set_feature(
     state: State<AppState>,
-    name: String,
+    name: Option<String>,
+    code: Option<serde_json::Value>,
     value: u32,
     _vcp_type: Option<u32>,
 ) -> Result<serde_json::Value, String> {
-    let code: u8 = match name.as_str() {
-        "brightness" => 0x10,
-        "contrast" => 0x12,
-        "picture_mode" => 0xDC,
-        "color_preset" => 0x14,
-        "red_gain" => 0x16,
-        "green_gain" => 0x18,
-        "blue_gain" => 0x1A,
-        "input_source" => 0x60,
-        "overdrive" => 0x68,
-        "gaming_sharpness" => 0x3E,
-        "mprt_aim" => 0xE3,
-        "orientation" => 0xAA,
-        "power_mode" => 0xD6,
-        _ => return Err(format!("Unknown feature: {}", name)),
-    };
-
-    state.ddcci.set_vcp(code, value)?;
-    Ok(serde_json::json!({ "success": true, "feature": name, "value": value }))
+    let resolved_code = resolve_feature_code(name.as_deref(), code.as_ref())?;
+    state.ddcci.set_vcp(resolved_code, value)?;
+    Ok(serde_json::json!({
+        "success": true,
+        "feature": name.unwrap_or_else(|| format!("0x{:02X}", resolved_code)),
+        "code": resolved_code,
+        "value": value
+    }))
 }
 
 #[tauri::command]
-fn set_raw_vcp(state: State<AppState>, code: u8, value: u32) -> Result<serde_json::Value, String> {
-    state.ddcci.set_vcp(code, value)?;
-    Ok(serde_json::json!({ "success": true, "code": format!("0x{:02X}", code), "value": value }))
+fn set_raw_vcp(
+    state: State<AppState>,
+    code: Option<serde_json::Value>,
+    opcode: Option<serde_json::Value>,
+    value: u32,
+) -> Result<serde_json::Value, String> {
+    let target = code.or(opcode).ok_or("Missing VCP code")?;
+    let resolved = resolve_feature_code(None, Some(&target))?;
+    state.ddcci.set_vcp(resolved, value)?;
+    Ok(serde_json::json!({
+        "success": true,
+        "code": format!("0x{:02X}", resolved),
+        "value": value
+    }))
 }
 
 #[tauri::command]
-fn reset_monitor(state: State<AppState>, reset_type: String) -> Result<serde_json::Value, String> {
-    let code = match reset_type.as_str() {
+#[allow(non_snake_case)]
+fn reset_monitor(
+    state: State<AppState>,
+    reset_type: Option<String>,
+    resetType: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let r_type = reset_type.or(resetType).unwrap_or_else(|| "factory".into());
+    let code = match r_type.as_str() {
         "luminance" => 0x05,
         "color" => 0x08,
-        "factory" => 0x04,
-        _ => return Err(format!("Unknown reset type: {}", reset_type)),
+        "factory" | "all" => 0x04,
+        _ => return Err(format!("Unknown reset type: {}", r_type)),
     };
     state.ddcci.set_vcp(code, 1)?;
-    Ok(serde_json::json!({ "success": true, "reset_type": reset_type }))
+    Ok(serde_json::json!({ "success": true, "reset_type": r_type }))
+}
+
+#[tauri::command]
+fn get_profiles() -> serde_json::Value {
+    let list = load_profiles();
+    serde_json::json!({ "profiles": list })
+}
+
+#[tauri::command]
+#[allow(non_snake_case)]
+fn apply_profile(
+    state: State<AppState>,
+    profile_id: Option<String>,
+    profileId: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let pid = profile_id.or(profileId).ok_or("Missing profile_id")?;
+    let list = load_profiles();
+    if let Some(target) = list.iter().find(|p| p.id == pid) {
+        apply_profile_to_monitor(&state.ddcci, target)?;
+        Ok(serde_json::json!({ "success": true, "profile_id": pid }))
+    } else {
+        Err(format!("Profile {} not found", pid))
+    }
+}
+
+#[tauri::command]
+fn create_profile(profile: Profile) -> Result<serde_json::Value, String> {
+    let mut list = load_profiles();
+    let mut new_p = profile;
+    if new_p.id.is_empty() {
+        new_p.id = format!(
+            "custom-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        );
+    }
+    list.push(new_p.clone());
+    save_profiles(&list)?;
+    Ok(serde_json::json!({ "success": true, "profile": new_p }))
+}
+
+#[tauri::command]
+#[allow(non_snake_case)]
+fn delete_profile(
+    profile_id: Option<String>,
+    profileId: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let pid = profile_id.or(profileId).ok_or("Missing profile_id")?;
+    let mut list = load_profiles();
+    if let Some(idx) = list.iter().position(|p| p.id == pid) {
+        if list[idx].built_in {
+            return Err("Cannot delete built-in preset".into());
+        }
+        list.remove(idx);
+        save_profiles(&list)?;
+        Ok(serde_json::json!({ "success": true }))
+    } else {
+        Err(format!("Profile {} not found", pid))
+    }
 }
 
 #[tauri::command]
@@ -135,13 +256,59 @@ fn save_settings_cmd(
 }
 
 #[tauri::command]
+#[allow(non_snake_case)]
 fn validate_hotkey_cmd(
     state: State<AppState>,
-    key_combination: String,
+    key_combination: Option<String>,
+    keyCombination: Option<String>,
     action_id: Option<String>,
+    actionId: Option<String>,
 ) -> serde_json::Value {
+    let combo = key_combination.or(keyCombination).unwrap_or_default();
+    let aid = action_id.or(actionId);
     let settings = state.settings.lock().unwrap();
-    validate_hotkey_against_settings(&*settings, &key_combination, action_id.as_deref())
+    validate_hotkey_against_settings(&*settings, &combo, aid.as_deref())
+}
+
+pub fn toggle_quickpanel_window(app: &tauri::AppHandle) {
+    if let Some(panel) = app.get_webview_window("quickpanel") {
+        if panel.is_visible().unwrap_or(false) {
+            let _ = panel.hide();
+        } else {
+            if let Ok(Some(monitor)) = panel.primary_monitor() {
+                let size = monitor.size();
+                let scale = monitor.scale_factor();
+                let width = (410.0 * scale) as i32;
+                let height = (590.0 * scale) as i32;
+                // Position in bottom-right corner right above taskbar
+                let x = (size.width as i32) - width - (16.0 * scale) as i32;
+                let y = (size.height as i32) - height - (60.0 * scale) as i32;
+                let _ = panel.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+            }
+            let _ = panel.show();
+            let _ = panel.set_focus();
+        }
+    }
+}
+
+pub fn show_main_window(app: &tauri::AppHandle) {
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.show();
+        let _ = win.unminimize();
+        let _ = win.set_focus();
+    }
+}
+
+#[tauri::command]
+fn open_main_window_cmd(app: tauri::AppHandle) {
+    show_main_window(&app);
+}
+
+#[tauri::command]
+fn hide_quickpanel_cmd(app: tauri::AppHandle) {
+    if let Some(panel) = app.get_webview_window("quickpanel") {
+        let _ = panel.hide();
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -164,35 +331,35 @@ pub fn run() {
             Some(vec!["--minimized"]),
         ))
         .setup(|app| {
-            // Build Native System Tray
-            let toggle_item = MenuItem::with_id(app, "toggle", "Show / Hide Controller", true, None::<&str>)?;
-            let preset_fps = MenuItem::with_id(app, "fps_250", "Preset: 250Hz Esports", true, None::<&str>)?;
-            let preset_night = MenuItem::with_id(app, "night", "Preset: Night Mode", true, None::<&str>)?;
+            // Build Native System Tray Menu
+            let quick_item =
+                MenuItem::with_id(app, "quick_panel", "Quick Panel (Sliders & Presets)", true, None::<&str>)?;
+            let main_item =
+                MenuItem::with_id(app, "main_window", "Full Controller Dashboard", true, None::<&str>)?;
+            let preset_fps =
+                MenuItem::with_id(app, "fps_250", "Preset: 250Hz Esports", true, None::<&str>)?;
+            let preset_night =
+                MenuItem::with_id(app, "night", "Preset: Night Mode", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
 
-            let menu = Menu::with_items(
-                app,
-                &[
-                    &toggle_item,
-                    &preset_fps,
-                    &preset_night,
-                    &quit_item,
-                ],
-            )?;
+            let menu =
+                Menu::with_items(app, &[&quick_item, &main_item, &preset_fps, &preset_night, &quit_item])?;
 
-            let _tray = TrayIconBuilder::new()
+            let mut tray_builder = TrayIconBuilder::new()
                 .menu(&menu)
-                .icon(app.default_window_icon().unwrap().clone())
+                .show_menu_on_left_click(false);
+
+            if let Some(icon) = app.default_window_icon() {
+                tray_builder = tray_builder.icon(icon.clone());
+            }
+
+            let _tray = tray_builder
                 .on_menu_event(|app, event| match event.id.as_ref() {
-                    "toggle" => {
-                        if let Some(win) = app.get_webview_window("main") {
-                            if win.is_visible().unwrap_or(false) {
-                                let _ = win.hide();
-                            } else {
-                                let _ = win.show();
-                                let _ = win.set_focus();
-                            }
-                        }
+                    "quick_panel" => {
+                        toggle_quickpanel_window(app);
+                    }
+                    "main_window" => {
+                        show_main_window(app);
                     }
                     "fps_250" => {
                         let state = app.state::<AppState>();
@@ -212,15 +379,46 @@ pub fn run() {
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click { .. } = event {
-                        let app = tray.app_handle();
-                        if let Some(win) = app.get_webview_window("main") {
-                            let _ = win.show();
-                            let _ = win.set_focus();
+                    match event {
+                        TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        } => {
+                            let app = tray.app_handle();
+                            toggle_quickpanel_window(app);
                         }
+                        TrayIconEvent::DoubleClick { .. } => {
+                            let app = tray.app_handle();
+                            show_main_window(app);
+                        }
+                        _ => {}
                     }
                 })
                 .build(app)?;
+
+            // Auto-hide quickpanel when it loses focus (clicked outside)
+            if let Some(panel) = app.get_webview_window("quickpanel") {
+                let panel_clone = panel.clone();
+                panel.on_window_event(move |event| {
+                    if let tauri::WindowEvent::Focused(false) = event {
+                        let _ = panel_clone.hide();
+                    }
+                });
+            }
+
+            // Ensure Main window is created and displayed
+            let win = if let Some(w) = app.get_webview_window("main") {
+                w
+            } else {
+                tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::default())
+                    .title("ThundeRobot Monitor Control")
+                    .inner_size(1050.0, 780.0)
+                    .resizable(true)
+                    .build()?
+            };
+            let _ = win.show();
+            let _ = win.set_focus();
 
             Ok(())
         })
@@ -230,9 +428,15 @@ pub fn run() {
             set_feature,
             set_raw_vcp,
             reset_monitor,
+            get_profiles,
+            apply_profile,
+            create_profile,
+            delete_profile,
             get_settings,
             save_settings_cmd,
-            validate_hotkey_cmd
+            validate_hotkey_cmd,
+            open_main_window_cmd,
+            hide_quickpanel_cmd
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

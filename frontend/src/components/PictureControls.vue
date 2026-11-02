@@ -49,6 +49,20 @@ const adjustContrast = (delta) => {
   const newVal = Math.min(100, Math.max(0, props.features.contrast + delta));
   emit("setFeature", "contrast", newVal);
 };
+
+const handleBrightnessWheel = (e) => {
+  e.preventDefault();
+  const step = e.shiftKey ? 5 : 2;
+  const delta = e.deltaY < 0 ? step : -step;
+  adjustBrightness(delta);
+};
+
+const handleContrastWheel = (e) => {
+  e.preventDefault();
+  const step = e.shiftKey ? 5 : 2;
+  const delta = e.deltaY < 0 ? step : -step;
+  adjustContrast(delta);
+};
 </script>
 
 <template>
@@ -88,7 +102,9 @@ const adjustContrast = (delta) => {
       <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
         <!-- Brightness Slider -->
         <div
-          class="p-4 space-y-3 border bg-muted/40 rounded-lg border-border"
+          class="p-4 space-y-3 border bg-muted/40 rounded-lg border-border hover:border-border/80 transition-colors"
+          @wheel.prevent="handleBrightnessWheel"
+          title="Scroll with mouse wheel to adjust brightness"
         >
           <div class="flex items-center justify-between">
             <div class="flex items-center space-x-2">
@@ -154,7 +170,9 @@ const adjustContrast = (delta) => {
 
         <!-- Contrast Slider -->
         <div
-          class="p-4 space-y-3 border bg-muted/40 rounded-lg border-border"
+          class="p-4 space-y-3 border bg-muted/40 rounded-lg border-border hover:border-border/80 transition-colors"
+          @wheel.prevent="handleContrastWheel"
+          title="Scroll with mouse wheel to adjust contrast"
         >
           <div class="flex items-center justify-between">
             <div class="flex items-center space-x-2">

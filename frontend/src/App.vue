@@ -12,7 +12,12 @@ import PhonePairModal from "./components/PhonePairModal.vue";
 import ConfirmModal from "./components/ConfirmModal.vue";
 import SaveProfileModal from "./components/SaveProfileModal.vue";
 import SettingsModal from "./components/SettingsModal.vue";
+import QuickPanel from "./components/QuickPanel.vue";
 import { CheckCircle2, AlertCircle, Info, RefreshCw } from "lucide-vue-next";
+
+const isQuickPanel = ref(
+  new URLSearchParams(window.location.search).get("mode") === "quickpanel"
+);
 
 const {
   monitorInfo,
@@ -49,6 +54,11 @@ onMounted(async () => {
       applyProfile(targetProfile);
     }, 500);
   }
+  if (params.get("settings") === "open") {
+    setTimeout(() => {
+      isSettingsModalOpen.value = true;
+    }, 300);
+  }
 });
 
 const openConfirmModal = (config) => {
@@ -74,7 +84,11 @@ const handleSaveProfile = async (profileData) => {
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col bg-background text-foreground pb-12 selection:bg-primary selection:text-primary-foreground">
+  <QuickPanel v-if="isQuickPanel" />
+  <div
+    v-else
+    class="min-h-screen flex flex-col bg-background text-foreground pb-12 selection:bg-primary selection:text-primary-foreground"
+  >
     <!-- Top Header & Telemetry -->
     <Header
       :monitorInfo="monitorInfo"

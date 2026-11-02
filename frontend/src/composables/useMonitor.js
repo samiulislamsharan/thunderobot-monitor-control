@@ -40,8 +40,95 @@ const features = reactive({
   power_mode: 1,
 });
 
+const DEFAULT_PRESETS = [
+  {
+    id: "preset-fps-250",
+    name: "Competitive FPS 250Hz",
+    description: "Max brightness, FPS mode, fast overdrive, crisp clarity for esports",
+    icon: "Crosshair",
+    built_in: true,
+    badge: "250Hz Esports",
+    color: "#00f0ff",
+    settings: {
+      brightness: 100,
+      contrast: 50,
+      picture_mode: 5,
+      color_preset: 11,
+      red_gain: 50,
+      green_gain: 50,
+      blue_gain: 50,
+      gaming_sharpness: 60,
+      overdrive: 3,
+      mprt_aim: 1,
+    },
+  },
+  {
+    id: "preset-night-reading",
+    name: "Night Mode / Low Blue",
+    description: "Gentle backlight, warm 6500K color temperature to eliminate eye strain",
+    icon: "Moon",
+    built_in: true,
+    badge: "Eye Care",
+    color: "#f59e0b",
+    settings: {
+      brightness: 25,
+      contrast: 42,
+      picture_mode: 0,
+      color_preset: 5,
+      red_gain: 55,
+      green_gain: 48,
+      blue_gain: 38,
+      gaming_sharpness: 50,
+      overdrive: 0,
+      mprt_aim: 0,
+    },
+  },
+  {
+    id: "preset-cinema",
+    name: "Cinema 21:9 Movie",
+    description: "Deep blacks, high dynamic range feel, vibrant color grading for ultrawide films",
+    icon: "Film",
+    built_in: true,
+    badge: "HDR / Cinema",
+    color: "#a855f7",
+    settings: {
+      brightness: 80,
+      contrast: 55,
+      picture_mode: 2,
+      color_preset: 6,
+      red_gain: 52,
+      green_gain: 50,
+      blue_gain: 50,
+      gaming_sharpness: 55,
+      overdrive: 1,
+      mprt_aim: 0,
+    },
+  },
+  {
+    id: "preset-standard-work",
+    name: "Standard Office / Work",
+    description: "Balanced luminance and neutral 50/50 color balance for all-day coding and work",
+    icon: "Monitor",
+    built_in: true,
+    badge: "Productivity",
+    color: "#10b981",
+    settings: {
+      brightness: 65,
+      contrast: 50,
+      picture_mode: 0,
+      color_preset: 6,
+      red_gain: 50,
+      green_gain: 50,
+      blue_gain: 50,
+      gaming_sharpness: 50,
+      overdrive: 1,
+      mprt_aim: 0,
+    },
+  },
+];
+
 const featureMeta = ref({});
-const profiles = ref([]);
+const profiles = ref(DEFAULT_PRESETS);
 const activeProfileId = ref(null);
 const loading = ref(true);
 const updating = ref(false);
@@ -50,6 +137,13 @@ const toasts = ref([]);
 
 // Debounce timer map for each feature
 const debounceTimers = new Map();
+
+const formatError = (e) => {
+  if (!e) return "Unknown error";
+  if (typeof e === "string") return e;
+  if (e.message) return e.message;
+  return JSON.stringify(e);
+};
 
 export function useMonitor() {
   const addToast = (message, type = "info", duration = 3000) => {
@@ -92,7 +186,9 @@ export function useMonitor() {
   const fetchProfiles = async () => {
     try {
       const data = await api.getProfiles();
-      profiles.value = data.profiles || [];
+      if (data && Array.isArray(data.profiles) && data.profiles.length > 0) {
+        profiles.value = data.profiles;
+      }
     } catch (e) {
       console.warn("Failed to fetch profiles:", e);
     }
@@ -114,7 +210,7 @@ export function useMonitor() {
       try {
         await api.setFeature(name, value);
       } catch (e) {
-        addToast(`Failed to set ${name}: ${e.message}`, "error");
+        addToast(`Failed to set ${name}: ${formatError(e)}`, "error");
       } finally {
         updating.value = false;
         debounceTimers.delete(name);
@@ -135,7 +231,7 @@ export function useMonitor() {
       }
       addToast(`Applied preset: ${profile?.name || "Custom"}`, "success");
     } catch (e) {
-      addToast(`Error applying preset: ${e.message}`, "error");
+      addToast(`Error applying preset: ${formatError(e)}`, "error");
     } finally {
       updating.value = false;
     }
@@ -170,7 +266,7 @@ export function useMonitor() {
         return true;
       }
     } catch (e) {
-      addToast("Error saving profile", "error");
+      addToast(`Error saving profile: ${formatError(e)}`, "error");
     }
     return false;
   };
@@ -184,7 +280,7 @@ export function useMonitor() {
       }
       addToast("Preset deleted", "info");
     } catch (e) {
-      addToast("Failed to delete preset", "error");
+      addToast(`Failed to delete preset: ${formatError(e)}`, "error");
     }
   };
 
@@ -194,7 +290,7 @@ export function useMonitor() {
       addToast(`Reset executed (${resetType})`, "success");
       setTimeout(fetchFeatures, 1000);
     } catch (e) {
-      addToast("Reset error", "error");
+      addToast(`Reset error: ${formatError(e)}`, "error");
     }
   };
 
@@ -207,7 +303,7 @@ export function useMonitor() {
       );
       return true;
     } catch (e) {
-      addToast(`Raw write failed: ${e.message}`, "error");
+      addToast(`Raw write failed: ${formatError(e)}`, "error");
       return false;
     }
   };
