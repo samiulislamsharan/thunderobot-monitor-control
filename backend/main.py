@@ -26,7 +26,7 @@ NAME_TO_CODE = {meta["name"]: code for code, meta in VCP_DEFINITIONS.items()}
 app = FastAPI(
     title="ThundeRobot DQ34C240L Monitor Control API",
     description="DDC/CI Web Controller for ThundeRobot DQ34C240L Fast VA 1440p 250Hz Curved Gaming Monitor",
-    version="1.0.0",
+    version="1.1.0",
 )
 
 # Enable CORS for local Vite dev and LAN phone access
