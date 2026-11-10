@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from "vue";
+import { computed, onMounted, onUnmounted } from "vue";
 import {
   Sun,
   Contrast,
@@ -54,28 +54,53 @@ const handleClose = async () => {
 };
 
 const adjustBrightness = (delta) => {
-  const newVal = Math.min(100, Math.max(0, features.brightness + delta));
+  const current = Number(features.brightness ?? 50);
+  const newVal = Math.min(100, Math.max(0, current + delta));
   setFeature("brightness", newVal);
 };
 
 const adjustContrast = (delta) => {
-  const newVal = Math.min(100, Math.max(0, features.contrast + delta));
+  const current = Number(features.contrast ?? 50);
+  const newVal = Math.min(100, Math.max(0, current + delta));
   setFeature("contrast", newVal);
 };
 
 const handleBrightnessWheel = (e) => {
-  e.preventDefault();
-  const step = e.shiftKey ? 5 : 2;
-  const delta = e.deltaY < 0 ? step : -step;
+  if (e && e.preventDefault) e.preventDefault();
+  const step = e && e.shiftKey ? 5 : 2;
+  const delta = e && e.deltaY < 0 ? step : -step;
   adjustBrightness(delta);
 };
 
 const handleContrastWheel = (e) => {
-  e.preventDefault();
-  const step = e.shiftKey ? 5 : 2;
-  const delta = e.deltaY < 0 ? step : -step;
+  if (e && e.preventDefault) e.preventDefault();
+  const step = e && e.shiftKey ? 5 : 2;
+  const delta = e && e.deltaY < 0 ? step : -step;
   adjustContrast(delta);
 };
+
+const handleGlobalWheel = (e) => {
+  // If the mouse cursor is hovering over the contrast card, adjust contrast
+  const contrastEl = document.querySelector(".group\\/contrast");
+  if (
+    contrastEl &&
+    (contrastEl === e.target || contrastEl.contains(e.target))
+  ) {
+    handleContrastWheel(e);
+    return;
+  }
+
+  // Anywhere else inside the taskbar window, mouse wheel scrolls brightness
+  handleBrightnessWheel(e);
+};
+
+onMounted(() => {
+  window.addEventListener("wheel", handleGlobalWheel, { passive: false });
+});
+
+onUnmounted(() => {
+  window.removeEventListener("wheel", handleGlobalWheel);
+});
 
 const overdriveLevels = [
   { level: 0, label: "Off" },
@@ -89,7 +114,7 @@ const overdriveLevels = [
 
 <template>
   <div
-    class="w-full h-full min-h-screen bg-background/95 backdrop-blur-xl text-foreground flex flex-col justify-between border border-border/80 shadow-2xl rounded-2xl overflow-hidden select-none box-border"
+    class="box-border flex flex-col justify-between w-full h-full min-h-screen overflow-hidden border shadow-2xl select-none bg-background/95 backdrop-blur-xl text-foreground border-border/80 rounded-2xl"
   >
     <!-- Top Header -->
     <div
@@ -97,12 +122,12 @@ const overdriveLevels = [
     >
       <div class="flex items-center space-x-2">
         <div
-          class="w-6 h-6 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary"
+          class="flex items-center justify-center w-6 h-6 border rounded-lg bg-primary/10 border-primary/20 text-primary"
         >
           <Sliders class="w-3.5 h-3.5" />
         </div>
         <div>
-          <h1 class="text-xs font-bold text-foreground leading-tight">
+          <h1 class="text-xs font-bold leading-tight text-foreground">
             ThundeRobot DQ34C240L
           </h1>
           <p class="text-[10px] text-muted-foreground font-medium">
@@ -115,7 +140,7 @@ const overdriveLevels = [
         <Button
           variant="ghost"
           size="icon"
-          class="w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground"
+          class="rounded-lg w-7 h-7 text-muted-foreground hover:text-foreground"
           @click="handleOpenFull"
           title="Open Full Dashboard"
         >
@@ -124,7 +149,7 @@ const overdriveLevels = [
         <Button
           variant="ghost"
           size="icon"
-          class="w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground"
+          class="rounded-lg w-7 h-7 text-muted-foreground hover:text-foreground"
           @click="handleClose"
           title="Close Quick Panel"
         >
@@ -137,14 +162,16 @@ const overdriveLevels = [
     <div class="flex-1 px-3.5 py-3 space-y-3 overflow-y-auto">
       <!-- 1. Brightness Slider -->
       <div
-        class="space-y-2 p-3 rounded-xl border border-border bg-card/60 transition-colors hover:border-border/80 group/brightness"
+        class="p-3 space-y-2 transition-colors border rounded-xl border-border bg-card/60 hover:border-border/80 group/brightness"
         @wheel.prevent="handleBrightnessWheel"
         title="Scroll with mouse wheel to adjust brightness"
       >
         <div class="flex items-center justify-between">
           <div class="flex items-center space-x-2">
             <Sun class="w-4 h-4 text-primary" />
-            <span class="text-xs font-semibold text-foreground">Brightness</span>
+            <span class="text-xs font-semibold text-foreground"
+              >Brightness</span
+            >
           </div>
           <div class="flex items-center space-x-1">
             <Button
@@ -197,7 +224,7 @@ const overdriveLevels = [
 
       <!-- 2. Contrast Slider -->
       <div
-        class="space-y-2 p-3 rounded-xl border border-border bg-card/60 transition-colors hover:border-border/80 group/contrast"
+        class="p-3 space-y-2 transition-colors border rounded-xl border-border bg-card/60 hover:border-border/80 group/contrast"
         @wheel.prevent="handleContrastWheel"
         title="Scroll with mouse wheel to adjust contrast"
       >
@@ -269,7 +296,7 @@ const overdriveLevels = [
           >
             <div class="flex items-center justify-between w-full">
               <div
-                class="w-6 h-6 rounded-lg bg-muted flex items-center justify-center text-foreground group-hover:text-primary transition"
+                class="flex items-center justify-center w-6 h-6 transition rounded-lg bg-muted text-foreground group-hover:text-primary"
               >
                 <component :is="getIcon(profile.icon)" class="w-3.5 h-3.5" />
               </div>
@@ -281,7 +308,7 @@ const overdriveLevels = [
               </Badge>
             </div>
             <div>
-              <div class="text-xs font-semibold text-foreground truncate">
+              <div class="text-xs font-semibold truncate text-foreground">
                 {{ profile.name }}
               </div>
               <div class="text-[10px] text-muted-foreground truncate">
@@ -294,7 +321,7 @@ const overdriveLevels = [
       </div>
 
       <!-- 4. Gaming Quick Overdrive & Strobe -->
-      <div class="p-3 rounded-xl border border-border bg-card/60 space-y-2">
+      <div class="p-3 space-y-2 border rounded-xl border-border bg-card/60">
         <div class="flex items-center justify-between">
           <div class="flex items-center space-x-2">
             <Zap class="w-3.5 h-3.5 text-primary" />
@@ -304,9 +331,7 @@ const overdriveLevels = [
           </div>
           <Badge variant="outline" class="text-[10px] font-mono">
             {{
-              features.overdrive === 0
-                ? "Off"
-                : `Level ${features.overdrive}`
+              features.overdrive === 0 ? "Off" : `Level ${features.overdrive}`
             }}
           </Badge>
         </div>

@@ -1,7 +1,10 @@
 use crate::ddcci::DdcciController;
 use crate::profiles::{apply_profile_to_monitor, load_profiles, save_profiles, Profile};
 use crate::resolve_feature_code;
-use crate::settings::{save_settings, validate_hotkey_against_settings, AppSettings};
+use crate::settings::{
+    save_settings, update_saved_monitor_setting, validate_hotkey_against_settings, AppSettings,
+    SavedMonitorSettings,
+};
 use log::{error, info};
 use rust_embed::RustEmbed;
 use std::net::UdpSocket;
@@ -290,6 +293,10 @@ fn handle_api(
             let val = body.get("value").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
             if let Ok(code) = resolve_feature_code(Some(name), None) {
                 let _ = ddcci.set_vcp(code, val);
+                if let Ok(mut set) = settings.lock() {
+                    update_saved_monitor_setting(&mut *set, code, val);
+                    let _ = save_settings(&*set);
+                }
                 let resp = serde_json::json!({
                     "success": true,
                     "feature": name,
@@ -319,6 +326,14 @@ fn handle_api(
         let profiles = load_profiles();
         if let Some(p) = profiles.into_iter().find(|x| x.id == id_part) {
             let _ = apply_profile_to_monitor(ddcci, &p);
+            if let Ok(mut set) = settings.lock() {
+                for (feat, &val) in &p.settings {
+                    if let Some(code) = crate::profiles::feature_name_to_vcp_code(feat) {
+                        update_saved_monitor_setting(&mut *set, code, val);
+                    }
+                }
+                let _ = save_settings(&*set);
+            }
         }
         let resp = serde_json::json!({ "success": true, "profile_id": id_part });
         let _ = request.respond(json_response(&resp, 200));
@@ -376,6 +391,51 @@ fn handle_api(
             }
         }
         let _ = request.respond(empty_response(400));
+        return;
+    }
+
+    // POST /api/settings/snapshot
+    if path == "/api/settings/snapshot" && *method == Method::Post {
+        let brightness = ddcci.get_vcp(0x10).ok().map(|(c, _)| c);
+        let contrast = ddcci.get_vcp(0x12).ok().map(|(c, _)| c);
+        let picture_mode = ddcci.get_vcp(0xDC).ok().map(|(c, _)| c);
+        let color_preset = ddcci.get_vcp(0x14).ok().map(|(c, _)| c);
+        let red_gain = ddcci.get_vcp(0x16).ok().map(|(c, _)| c);
+        let green_gain = ddcci.get_vcp(0x18).ok().map(|(c, _)| c);
+        let blue_gain = ddcci.get_vcp(0x1A).ok().map(|(c, _)| c);
+        let red_black_level = ddcci.get_vcp(0x6C).ok().map(|(c, _)| c);
+        let green_black_level = ddcci.get_vcp(0x6E).ok().map(|(c, _)| c);
+        let blue_black_level = ddcci.get_vcp(0x70).ok().map(|(c, _)| c);
+        let overdrive = ddcci.get_vcp(0x68).ok().map(|(c, _)| c);
+        let gaming_sharpness = ddcci.get_vcp(0x3E).ok().map(|(c, _)| c);
+        let mprt_aim = ddcci.get_vcp(0xE3).ok().map(|(c, _)| c);
+
+        let saved = SavedMonitorSettings {
+            brightness,
+            contrast,
+            picture_mode,
+            color_preset,
+            red_gain,
+            green_gain,
+            blue_gain,
+            red_black_level,
+            green_black_level,
+            blue_black_level,
+            overdrive,
+            gaming_sharpness,
+            mprt_aim,
+        };
+
+        if let Ok(mut set) = settings.lock() {
+            set.saved_monitor_settings = Some(saved.clone());
+            let _ = save_settings(&*set);
+        }
+
+        let resp = serde_json::json!({
+            "success": true,
+            "saved_settings": saved
+        });
+        let _ = request.respond(json_response(&resp, 200));
         return;
     }
 

@@ -200,6 +200,21 @@ export const api = {
     return await res.json();
   },
 
+  async snapshotStartupSettings() {
+    if (isTauri) {
+      return await invoke('snapshot_monitor_state_cmd');
+    }
+    const res = await fetch(`${API_BASE}/settings/snapshot`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to snapshot monitor settings');
+    }
+    return await res.json();
+  },
+
   async validateHotkey(keyCombination, actionId = null) {
     if (isTauri) {
       return await invoke('validate_hotkey_cmd', {

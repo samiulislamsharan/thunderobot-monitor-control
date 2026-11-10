@@ -3,11 +3,13 @@
   "identifier": "default",
   "description": "enables the default permissions for monitor control desktop app",
   "windows": [
-    "main"
+    "main",
+    "quickpanel"
   ],
   "permissions": [
     "core:default",
     "global-shortcut:default",
-    "autostart:default"
+    "autostart:default",
+    "mcp-bridge:default"
   ]
 }

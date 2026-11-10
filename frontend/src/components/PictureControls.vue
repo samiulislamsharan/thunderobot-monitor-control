@@ -41,26 +41,28 @@ const pictureModes = [
 ];
 
 const adjustBrightness = (delta) => {
-  const newVal = Math.min(100, Math.max(0, props.features.brightness + delta));
+  const current = Number(props.features?.brightness ?? 50);
+  const newVal = Math.min(100, Math.max(0, current + delta));
   emit("setFeature", "brightness", newVal);
 };
 
 const adjustContrast = (delta) => {
-  const newVal = Math.min(100, Math.max(0, props.features.contrast + delta));
+  const current = Number(props.features?.contrast ?? 50);
+  const newVal = Math.min(100, Math.max(0, current + delta));
   emit("setFeature", "contrast", newVal);
 };
 
 const handleBrightnessWheel = (e) => {
-  e.preventDefault();
-  const step = e.shiftKey ? 5 : 2;
-  const delta = e.deltaY < 0 ? step : -step;
+  if (e && e.preventDefault) e.preventDefault();
+  const step = e && e.shiftKey ? 5 : 2;
+  const delta = e && e.deltaY < 0 ? step : -step;
   adjustBrightness(delta);
 };
 
 const handleContrastWheel = (e) => {
-  e.preventDefault();
-  const step = e.shiftKey ? 5 : 2;
-  const delta = e.deltaY < 0 ? step : -step;
+  if (e && e.preventDefault) e.preventDefault();
+  const step = e && e.shiftKey ? 5 : 2;
+  const delta = e && e.deltaY < 0 ? step : -step;
   adjustContrast(delta);
 };
 </script>
@@ -102,7 +104,7 @@ const handleContrastWheel = (e) => {
       <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
         <!-- Brightness Slider -->
         <div
-          class="p-4 space-y-3 border bg-muted/40 rounded-lg border-border hover:border-border/80 transition-colors"
+          class="p-4 space-y-3 transition-colors border rounded-lg bg-muted/40 border-border hover:border-border/80"
           @wheel.prevent="handleBrightnessWheel"
           title="Scroll with mouse wheel to adjust brightness"
         >
@@ -170,7 +172,7 @@ const handleContrastWheel = (e) => {
 
         <!-- Contrast Slider -->
         <div
-          class="p-4 space-y-3 border bg-muted/40 rounded-lg border-border hover:border-border/80 transition-colors"
+          class="p-4 space-y-3 transition-colors border rounded-lg bg-muted/40 border-border hover:border-border/80"
           @wheel.prevent="handleContrastWheel"
           title="Scroll with mouse wheel to adjust contrast"
         >
@@ -191,7 +193,7 @@ const handleContrastWheel = (e) => {
                 -5
               </Button>
               <span
-                class="w-12 px-2 py-1 font-mono text-xs font-bold text-center text-foreground border rounded bg-background border-border"
+                class="w-12 px-2 py-1 font-mono text-xs font-bold text-center border rounded text-foreground bg-background border-border"
               >
                 {{ features.contrast }}%
               </span>

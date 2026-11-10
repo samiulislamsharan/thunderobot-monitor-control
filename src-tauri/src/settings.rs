@@ -30,12 +30,34 @@ pub struct HotkeyConfig {
     pub description: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct SavedMonitorSettings {
+    pub brightness: Option<u32>,
+    pub contrast: Option<u32>,
+    pub picture_mode: Option<u32>,
+    pub color_preset: Option<u32>,
+    pub red_gain: Option<u32>,
+    pub green_gain: Option<u32>,
+    pub blue_gain: Option<u32>,
+    pub red_black_level: Option<u32>,
+    pub green_black_level: Option<u32>,
+    pub blue_black_level: Option<u32>,
+    pub overdrive: Option<u32>,
+    pub gaming_sharpness: Option<u32>,
+    pub mprt_aim: Option<u32>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct AppSettings {
     pub autostart: bool,
     pub close_to_tray: bool,
     pub start_minimized: bool,
+    pub restore_settings_on_startup: bool,
+    pub startup_restore_mode: String,
     pub default_profile: String,
+    pub saved_monitor_settings: Option<SavedMonitorSettings>,
     pub i2c_delay_ms: u64,
     pub telemetry_interval_sec: u64,
     pub phone_remote_enabled: bool,
@@ -49,7 +71,24 @@ impl Default for AppSettings {
             autostart: false,
             close_to_tray: true,
             start_minimized: false,
+            restore_settings_on_startup: true,
+            startup_restore_mode: "saved_state".into(),
             default_profile: "preset-fps-250".into(),
+            saved_monitor_settings: Some(SavedMonitorSettings {
+                brightness: Some(95),
+                contrast: Some(45),
+                picture_mode: Some(0),
+                color_preset: Some(11),
+                red_gain: Some(50),
+                green_gain: Some(50),
+                blue_gain: Some(50),
+                red_black_level: Some(50),
+                green_black_level: Some(50),
+                blue_black_level: Some(50),
+                overdrive: Some(0),
+                gaming_sharpness: Some(50),
+                mprt_aim: Some(0),
+            }),
             i2c_delay_ms: 35,
             telemetry_interval_sec: 3,
             phone_remote_enabled: true,
@@ -277,4 +316,88 @@ pub fn save_settings(settings: &AppSettings) -> Result<(), String> {
     let path = get_settings_file_path();
     let content = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
     fs::write(path, content).map_err(|e| e.to_string())
+}
+
+pub fn update_saved_monitor_setting(settings: &mut AppSettings, code: u8, value: u32) {
+    let saved = settings
+        .saved_monitor_settings
+        .get_or_insert_with(Default::default);
+    match code {
+        0x10 => saved.brightness = Some(value),
+        0x12 => saved.contrast = Some(value),
+        0xDC => saved.picture_mode = Some(value),
+        0x14 => saved.color_preset = Some(value),
+        0x16 => saved.red_gain = Some(value),
+        0x18 => saved.green_gain = Some(value),
+        0x1A => saved.blue_gain = Some(value),
+        0x6C => saved.red_black_level = Some(value),
+        0x6E => saved.green_black_level = Some(value),
+        0x70 => saved.blue_black_level = Some(value),
+        0x68 => saved.overdrive = Some(value),
+        0x3E => saved.gaming_sharpness = Some(value),
+        0xE3 => saved.mprt_aim = Some(value),
+        _ => {}
+    }
+}
+
+pub fn apply_startup_settings(ddcci: &crate::ddcci::DdcciController, settings: &AppSettings) {
+    if !settings.restore_settings_on_startup {
+        return;
+    }
+
+    if settings.startup_restore_mode == "preset" {
+        let profiles = crate::profiles::load_profiles();
+        if let Some(prof) = profiles.iter().find(|p| p.id == settings.default_profile) {
+            let _ = crate::profiles::apply_profile_to_monitor(ddcci, prof);
+            return;
+        }
+    }
+
+    // Default or "saved_state":
+    if let Some(ref saved) = settings.saved_monitor_settings {
+        if let Some(v) = saved.brightness {
+            let _ = ddcci.set_vcp(0x10, v);
+        }
+        if let Some(v) = saved.contrast {
+            let _ = ddcci.set_vcp(0x12, v);
+        }
+        if let Some(v) = saved.picture_mode {
+            let _ = ddcci.set_vcp(0xDC, v);
+        }
+        if let Some(v) = saved.color_preset {
+            let _ = ddcci.set_vcp(0x14, v);
+        }
+        if let Some(v) = saved.red_gain {
+            let _ = ddcci.set_vcp(0x16, v);
+        }
+        if let Some(v) = saved.green_gain {
+            let _ = ddcci.set_vcp(0x18, v);
+        }
+        if let Some(v) = saved.blue_gain {
+            let _ = ddcci.set_vcp(0x1A, v);
+        }
+        if let Some(v) = saved.red_black_level {
+            let _ = ddcci.set_vcp(0x6C, v);
+        }
+        if let Some(v) = saved.green_black_level {
+            let _ = ddcci.set_vcp(0x6E, v);
+        }
+        if let Some(v) = saved.blue_black_level {
+            let _ = ddcci.set_vcp(0x70, v);
+        }
+        if let Some(v) = saved.overdrive {
+            let _ = ddcci.set_vcp(0x68, v);
+        }
+        if let Some(v) = saved.gaming_sharpness {
+            let _ = ddcci.set_vcp(0x3E, v);
+        }
+        if let Some(v) = saved.mprt_aim {
+            let _ = ddcci.set_vcp(0xE3, v);
+        }
+    } else {
+        let profiles = crate::profiles::load_profiles();
+        if let Some(prof) = profiles.iter().find(|p| p.id == settings.default_profile) {
+            let _ = crate::profiles::apply_profile_to_monitor(ddcci, prof);
+        }
+    }
 }

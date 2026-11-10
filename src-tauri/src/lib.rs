@@ -5,7 +5,10 @@ pub mod settings;
 
 use ddcci::DdcciController;
 use profiles::{apply_profile_to_monitor, load_profiles, save_profiles, Profile};
-use settings::{load_settings, save_settings, validate_hotkey_against_settings, AppSettings};
+use settings::{
+    apply_startup_settings, load_settings, save_settings, update_saved_monitor_setting,
+    validate_hotkey_against_settings, AppSettings, SavedMonitorSettings,
+};
 use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuItem},
@@ -143,6 +146,12 @@ fn set_feature(
 ) -> Result<serde_json::Value, String> {
     let resolved_code = resolve_feature_code(name.as_deref(), code.as_ref())?;
     state.ddcci.set_vcp(resolved_code, value)?;
+
+    if let Ok(mut set) = state.settings.lock() {
+        update_saved_monitor_setting(&mut *set, resolved_code, value);
+        let _ = save_settings(&*set);
+    }
+
     Ok(serde_json::json!({
         "success": true,
         "feature": name.unwrap_or_else(|| format!("0x{:02X}", resolved_code)),
@@ -203,6 +212,14 @@ fn apply_profile(
     let list = load_profiles();
     if let Some(target) = list.iter().find(|p| p.id == pid) {
         apply_profile_to_monitor(&state.ddcci, target)?;
+        if let Ok(mut set) = state.settings.lock() {
+            for (feat, &val) in &target.settings {
+                if let Some(code) = profiles::feature_name_to_vcp_code(feat) {
+                    update_saved_monitor_setting(&mut *set, code, val);
+                }
+            }
+            let _ = save_settings(&*set);
+        }
         Ok(serde_json::json!({ "success": true, "profile_id": pid }))
     } else {
         Err(format!("Profile {} not found", pid))
@@ -264,6 +281,49 @@ fn save_settings_cmd(
         *current = settings;
     }
     Ok(serde_json::json!({ "success": true }))
+}
+
+#[tauri::command]
+fn snapshot_monitor_state_cmd(state: State<AppState>) -> Result<serde_json::Value, String> {
+    let brightness = state.ddcci.get_vcp(0x10).ok().map(|(c, _)| c);
+    let contrast = state.ddcci.get_vcp(0x12).ok().map(|(c, _)| c);
+    let picture_mode = state.ddcci.get_vcp(0xDC).ok().map(|(c, _)| c);
+    let color_preset = state.ddcci.get_vcp(0x14).ok().map(|(c, _)| c);
+    let red_gain = state.ddcci.get_vcp(0x16).ok().map(|(c, _)| c);
+    let green_gain = state.ddcci.get_vcp(0x18).ok().map(|(c, _)| c);
+    let blue_gain = state.ddcci.get_vcp(0x1A).ok().map(|(c, _)| c);
+    let red_black_level = state.ddcci.get_vcp(0x6C).ok().map(|(c, _)| c);
+    let green_black_level = state.ddcci.get_vcp(0x6E).ok().map(|(c, _)| c);
+    let blue_black_level = state.ddcci.get_vcp(0x70).ok().map(|(c, _)| c);
+    let overdrive = state.ddcci.get_vcp(0x68).ok().map(|(c, _)| c);
+    let gaming_sharpness = state.ddcci.get_vcp(0x3E).ok().map(|(c, _)| c);
+    let mprt_aim = state.ddcci.get_vcp(0xE3).ok().map(|(c, _)| c);
+
+    let saved = SavedMonitorSettings {
+        brightness,
+        contrast,
+        picture_mode,
+        color_preset,
+        red_gain,
+        green_gain,
+        blue_gain,
+        red_black_level,
+        green_black_level,
+        blue_black_level,
+        overdrive,
+        gaming_sharpness,
+        mprt_aim,
+    };
+
+    if let Ok(mut set) = state.settings.lock() {
+        set.saved_monitor_settings = Some(saved.clone());
+        save_settings(&*set)?;
+    }
+
+    Ok(serde_json::json!({
+        "success": true,
+        "saved_settings": saved
+    }))
 }
 
 #[tauri::command]
@@ -330,7 +390,18 @@ pub fn run() {
     let phone_port = settings.phone_remote_port;
 
     let ddcci = Arc::new(DdcciController::new(settings.i2c_delay_ms));
-    let settings_arc = Arc::new(Mutex::new(settings));
+    let settings_arc = Arc::new(Mutex::new(settings.clone()));
+
+    // Automatically apply saved settings / profile on application startup if enabled
+    if settings.restore_settings_on_startup {
+        let startup_ddcci = ddcci.clone();
+        let startup_settings = settings.clone();
+        std::thread::spawn(move || {
+            // Give display driver & monitor scalar time to initialize
+            std::thread::sleep(std::time::Duration::from_millis(800));
+            apply_startup_settings(&startup_ddcci, &startup_settings);
+        });
+    }
 
     if phone_enabled {
         let s_ddcci = ddcci.clone();
@@ -345,15 +416,24 @@ pub fn run() {
         settings: settings_arc.clone(),
     };
 
-    tauri::Builder::default()
+    let start_minimized = settings.start_minimized;
+
+    let mut builder = tauri::Builder::default()
         .manage(app_state)
         .plugin(tauri_plugin_log::Builder::default().build())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--minimized"]),
-        ))
-        .setup(|app| {
+        ));
+
+    #[cfg(debug_assertions)]
+    {
+        builder = builder.plugin(tauri_plugin_mcp_bridge::init());
+    }
+
+    builder
+        .setup(move |app| {
             // Build Native System Tray Menu
             let quick_item = MenuItem::with_id(
                 app,
@@ -446,7 +526,7 @@ pub fn run() {
                 });
             }
 
-            // Ensure Main window is created and displayed
+            // Ensure Main window is created and displayed according to start_minimized
             let win = if let Some(w) = app.get_webview_window("main") {
                 w
             } else {
@@ -456,8 +536,27 @@ pub fn run() {
                     .resizable(true)
                     .build()?
             };
-            let _ = win.show();
-            let _ = win.set_focus();
+
+            if !start_minimized {
+                let _ = win.show();
+                let _ = win.set_focus();
+            }
+
+            // Handle close-to-tray if configured
+            let win_clone = win.clone();
+            let settings_close = settings_arc.clone();
+            win.on_window_event(move |event| {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    let close_to_tray = {
+                        let s = settings_close.lock().unwrap();
+                        s.close_to_tray
+                    };
+                    if close_to_tray {
+                        api.prevent_close();
+                        let _ = win_clone.hide();
+                    }
+                }
+            });
 
             Ok(())
         })
@@ -473,6 +572,7 @@ pub fn run() {
             delete_profile,
             get_settings,
             save_settings_cmd,
+            snapshot_monitor_state_cmd,
             validate_hotkey_cmd,
             open_main_window_cmd,
             hide_quickpanel_cmd

@@ -36,18 +36,41 @@ const recordingActionId = ref(null);
 const validationResults = reactive({});
 const isSaving = ref(false);
 const saveSuccess = ref(false);
+const isSnapshotting = ref(false);
+const snapshotSuccess = ref(false);
 
 const localSettings = reactive({
   autostart: false,
   close_to_tray: true,
   start_minimized: false,
+  restore_settings_on_startup: true,
+  startup_restore_mode: "saved_state",
   default_profile: "preset-fps-250",
+  saved_monitor_settings: null,
   i2c_delay_ms: 35,
   telemetry_interval_sec: 3,
   phone_remote_enabled: true,
   phone_remote_port: 8000,
   hotkeys: [],
 });
+
+const handleSnapshotCurrent = async () => {
+  isSnapshotting.value = true;
+  try {
+    const res = await api.snapshotStartupSettings();
+    if (res && res.saved_settings) {
+      localSettings.saved_monitor_settings = res.saved_settings;
+    }
+    snapshotSuccess.value = true;
+    setTimeout(() => {
+      snapshotSuccess.value = false;
+    }, 2500);
+  } catch (err) {
+    console.error("Failed to snapshot settings:", err);
+  } finally {
+    isSnapshotting.value = false;
+  }
+};
 
 const loadSettings = async () => {
   try {
@@ -548,38 +571,140 @@ const handleBackdropClick = (e) => {
                 />
               </div>
 
-              <!-- Default Profile on Startup -->
+              <!-- Startup Monitor Calibration & Restoration -->
               <div
-                class="p-4 space-y-2 border rounded-lg bg-muted/30 border-border"
+                class="p-4 space-y-3.5 border rounded-lg bg-muted/30 border-border"
               >
-                <label class="block text-sm font-semibold text-foreground"
-                  >Default Startup Preset</label
+                <div class="flex items-center justify-between">
+                  <div class="space-y-0.5">
+                    <label class="text-sm font-semibold text-foreground"
+                      >Restore Saved Settings on Startup</label
+                    >
+                    <p class="text-xs text-muted-foreground">
+                      Automatically apply your preferred brightness, contrast, and hardware settings when the app starts
+                    </p>
+                  </div>
+                  <Switch
+                    :checked="localSettings.restore_settings_on_startup"
+                    @update:checked="localSettings.restore_settings_on_startup = $event"
+                  />
+                </div>
+
+                <div
+                  v-if="localSettings.restore_settings_on_startup"
+                  class="pt-3 border-t border-border/60 space-y-3"
                 >
-                <p class="text-xs text-muted-foreground">
-                  Select which profile hardware settings to automatically apply
-                  upon application launch
-                </p>
-                <div class="grid grid-cols-2 gap-2 pt-1 sm:grid-cols-4">
-                  <Button
-                    v-for="prof in [
-                      { id: 'preset-fps-250', label: '250Hz Esports' },
-                      { id: 'preset-night-reading', label: 'Night Mode' },
-                      { id: 'preset-cinema', label: 'Cinema 21:9' },
-                      { id: 'preset-standard-work', label: 'Standard 6500K' },
-                    ]"
-                    :key="prof.id"
-                    variant="outline"
-                    size="sm"
-                    @click="localSettings.default_profile = prof.id"
-                    :class="[
-                      'text-xs justify-center',
-                      localSettings.default_profile === prof.id
-                        ? 'bg-accent text-accent-foreground border-primary font-semibold ring-1 ring-primary/20'
-                        : 'bg-card text-muted-foreground border-border',
-                    ]"
+                  <!-- Mode Selector: Custom Saved State vs Preset -->
+                  <div class="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      @click="localSettings.startup_restore_mode = 'saved_state'"
+                      :class="[
+                        'text-xs flex-1 justify-center',
+                        localSettings.startup_restore_mode === 'saved_state'
+                          ? 'bg-primary text-primary-foreground border-primary font-semibold'
+                          : 'bg-card text-muted-foreground border-border hover:text-foreground',
+                      ]"
+                    >
+                      <span>Last Saved Calibration</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      @click="localSettings.startup_restore_mode = 'preset'"
+                      :class="[
+                        'text-xs flex-1 justify-center',
+                        localSettings.startup_restore_mode === 'preset'
+                          ? 'bg-primary text-primary-foreground border-primary font-semibold'
+                          : 'bg-card text-muted-foreground border-border hover:text-foreground',
+                      ]"
+                    >
+                      <span>Specific Preset</span>
+                    </Button>
+                  </div>
+
+                  <!-- Mode: Saved State Details & Snapshot Action -->
+                  <div
+                    v-if="localSettings.startup_restore_mode === 'saved_state'"
+                    class="p-3 rounded-lg bg-card/60 border border-border/80 space-y-2.5"
                   >
-                    {{ prof.label }}
-                  </Button>
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs font-semibold text-foreground">
+                        Custom Calibration Snapshot
+                      </span>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        class="h-7 text-xs gap-1.5"
+                        @click="handleSnapshotCurrent"
+                        :disabled="isSnapshotting"
+                      >
+                        <RefreshCw
+                          :class="['w-3 h-3', isSnapshotting ? 'animate-spin' : '']"
+                        />
+                        <span>{{
+                          snapshotSuccess
+                            ? "Snapshot Captured!"
+                            : "Snapshot Live Settings"
+                        }}</span>
+                      </Button>
+                    </div>
+
+                    <div
+                      v-if="localSettings.saved_monitor_settings"
+                      class="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground pt-1 sm:grid-cols-4"
+                    >
+                      <div class="p-2 rounded bg-muted/40 border border-border/50">
+                        <span class="block text-[10px] uppercase font-bold text-foreground">Brightness</span>
+                        <span>{{ localSettings.saved_monitor_settings.brightness ?? 95 }}%</span>
+                      </div>
+                      <div class="p-2 rounded bg-muted/40 border border-border/50">
+                        <span class="block text-[10px] uppercase font-bold text-foreground">Contrast</span>
+                        <span>{{ localSettings.saved_monitor_settings.contrast ?? 45 }}%</span>
+                      </div>
+                      <div class="p-2 rounded bg-muted/40 border border-border/50">
+                        <span class="block text-[10px] uppercase font-bold text-foreground">Overdrive</span>
+                        <span>Level {{ localSettings.saved_monitor_settings.overdrive ?? 0 }}</span>
+                      </div>
+                      <div class="p-2 rounded bg-muted/40 border border-border/50">
+                        <span class="block text-[10px] uppercase font-bold text-foreground">Sharpness</span>
+                        <span>{{ localSettings.saved_monitor_settings.gaming_sharpness ?? 50 }}%</span>
+                      </div>
+                    </div>
+                    <p v-else class="text-[11px] text-muted-foreground italic">
+                      No custom snapshot saved yet. Click "Snapshot Live Settings" to capture your current monitor calibration as startup defaults.
+                    </p>
+                  </div>
+
+                  <!-- Mode: Specific Preset Picker -->
+                  <div v-else class="space-y-2">
+                    <p class="text-[11px] text-muted-foreground">
+                      Select which preset to automatically apply each time the app starts:
+                    </p>
+                    <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      <Button
+                        v-for="prof in [
+                          { id: 'preset-fps-250', label: '250Hz Esports' },
+                          { id: 'preset-night-reading', label: 'Night Mode' },
+                          { id: 'preset-cinema', label: 'Cinema 21:9' },
+                          { id: 'preset-standard-work', label: 'Standard 6500K' },
+                        ]"
+                        :key="prof.id"
+                        variant="outline"
+                        size="sm"
+                        @click="localSettings.default_profile = prof.id"
+                        :class="[
+                          'text-xs justify-center',
+                          localSettings.default_profile === prof.id
+                            ? 'bg-accent text-accent-foreground border-primary font-semibold ring-1 ring-primary/20'
+                            : 'bg-card text-muted-foreground border-border',
+                        ]"
+                      >
+                        {{ prof.label }}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

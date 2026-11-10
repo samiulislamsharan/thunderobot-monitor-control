@@ -35,7 +35,10 @@ class SettingsUpdateRequest(BaseModel):
     autostart: Optional[bool] = None
     close_to_tray: Optional[bool] = None
     start_minimized: Optional[bool] = None
+    restore_settings_on_startup: Optional[bool] = None
+    startup_restore_mode: Optional[str] = None
     default_profile: Optional[str] = None
+    saved_monitor_settings: Optional[Dict[str, Any]] = None
     i2c_delay_ms: Optional[int] = None
     telemetry_interval_sec: Optional[int] = None
     phone_remote_enabled: Optional[bool] = None
