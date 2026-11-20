@@ -23,12 +23,13 @@ pub struct AppState {
 
 #[tauri::command]
 fn get_monitor_info(state: State<AppState>) -> serde_json::Value {
-    let port = {
+    let (saved_port, phone_enabled) = {
         let set = state.settings.lock().unwrap();
-        set.phone_remote_port
+        (set.phone_remote_port, set.phone_remote_enabled)
     };
+    let active_port = server::get_active_port().unwrap_or(saved_port);
     let lan_ip = server::get_lan_ip();
-    let phone_url = format!("http://{}:{}", lan_ip, port);
+    let phone_url = format!("http://{}:{}", lan_ip, active_port);
 
     serde_json::json!({
         "model": "DQ34C240L",
@@ -40,8 +41,9 @@ fn get_monitor_info(state: State<AppState>) -> serde_json::Value {
         "panel_type": "Fast VA",
         "aspect_ratio": "21:9 Ultrawide",
         "lan_ip": lan_ip,
-        "port": port,
-        "local_url": format!("http://localhost:{}", port),
+        "port": active_port,
+        "server_enabled": phone_enabled,
+        "local_url": format!("http://localhost:{}", active_port),
         "phone_url": phone_url,
         "telemetry": {
             "v_freq": 250,
@@ -275,12 +277,47 @@ fn save_settings_cmd(
     state: State<AppState>,
     settings: AppSettings,
 ) -> Result<serde_json::Value, String> {
+    if settings.phone_remote_port < 1024 {
+        return Err("Port number must be 1024 or higher".into());
+    }
+
+    let (old_port, old_enabled) = {
+        let cur = state.settings.lock().unwrap();
+        (cur.phone_remote_port, cur.phone_remote_enabled)
+    };
+
     save_settings(&settings)?;
     state.ddcci.set_delay(settings.i2c_delay_ms);
-    if let Ok(mut current) = state.settings.lock() {
-        *current = settings;
+
+    let port_changed = settings.phone_remote_port != old_port;
+    let enabled_changed = settings.phone_remote_enabled != old_enabled;
+
+    if settings.phone_remote_enabled {
+        if port_changed || enabled_changed || server::get_active_port().is_none() {
+            server::restart_server(
+                state.ddcci.clone(),
+                state.settings.clone(),
+                settings.phone_remote_port,
+            )?;
+        }
+    } else if old_enabled {
+        server::stop_server();
     }
-    Ok(serde_json::json!({ "success": true }))
+
+    if let Ok(mut current) = state.settings.lock() {
+        *current = settings.clone();
+    }
+
+    let lan_ip = server::get_lan_ip();
+    let active_port = server::get_active_port().unwrap_or(settings.phone_remote_port);
+
+    Ok(serde_json::json!({
+        "success": true,
+        "port": active_port,
+        "server_enabled": settings.phone_remote_enabled,
+        "local_url": format!("http://localhost:{}", active_port),
+        "phone_url": format!("http://{}:{}", lan_ip, active_port)
+    }))
 }
 
 #[tauri::command]
@@ -407,7 +444,9 @@ pub fn run() {
         let s_ddcci = ddcci.clone();
         let s_settings = settings_arc.clone();
         std::thread::spawn(move || {
-            server::start_server(s_ddcci, s_settings, phone_port);
+            if let Err(e) = server::start_server(s_ddcci, s_settings, phone_port) {
+                log::error!("Failed to start embedded web server on port {}: {}", phone_port, e);
+            }
         });
     }
 

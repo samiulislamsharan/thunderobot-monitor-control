@@ -11,9 +11,9 @@ const monitorInfo = ref({
   panel_type: "Fast VA",
   aspect_ratio: "21:9 Ultrawide",
   lan_ip: "127.0.0.1",
-  port: 8000,
-  local_url: "http://localhost:8000",
-  phone_url: "http://localhost:8000",
+  port: 18240,
+  local_url: "http://localhost:18240",
+  phone_url: "http://localhost:18240",
   telemetry: {
     v_freq: 250,
     h_freq: 473.2,

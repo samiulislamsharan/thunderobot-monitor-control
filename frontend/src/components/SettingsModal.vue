@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, watch, onMounted, onBeforeUnmount } from "vue";
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import {
   Settings,
   X,
@@ -7,6 +7,8 @@ import {
   Monitor,
   Cpu,
   Smartphone,
+  Globe,
+  Server,
   Check,
   AlertTriangle,
   AlertCircle,
@@ -36,8 +38,21 @@ const recordingActionId = ref(null);
 const validationResults = reactive({});
 const isSaving = ref(false);
 const saveSuccess = ref(false);
+const saveStatusMessage = ref("");
 const isSnapshotting = ref(false);
 const snapshotSuccess = ref(false);
+
+const commonDevPorts = [3000, 5000, 5173, 8000, 8080, 8888];
+const isDevPortConflict = computed(() => {
+  return commonDevPorts.includes(Number(localSettings.phone_remote_port));
+});
+
+const portPresets = [
+  { port: 18240, label: "18240 (Recommended)" },
+  { port: 24025, label: "24025 (240Hz)" },
+  { port: 18080, label: "18080" },
+  { port: 9420, label: "9420" },
+];
 
 const localSettings = reactive({
   autostart: false,
@@ -50,7 +65,7 @@ const localSettings = reactive({
   i2c_delay_ms: 35,
   telemetry_interval_sec: 3,
   phone_remote_enabled: true,
-  phone_remote_port: 8000,
+  phone_remote_port: 18240,
   hotkeys: [],
 });
 
@@ -185,18 +200,29 @@ onBeforeUnmount(() => {
 });
 
 const handleSave = async () => {
+  const port = Number(localSettings.phone_remote_port);
+  if (isNaN(port) || port < 1024 || port > 65535) {
+    alert("Server port must be an integer between 1024 and 65535.");
+    return;
+  }
   isSaving.value = true;
   saveSuccess.value = false;
+  saveStatusMessage.value = "";
   try {
-    await api.saveSettings(localSettings);
+    const res = await api.saveSettings(localSettings);
     saveSuccess.value = true;
+    saveStatusMessage.value = res?.port
+      ? `Saved! Server on :${res.port}`
+      : "Preferences Saved!";
     emit("settingsSaved", localSettings);
     setTimeout(() => {
       saveSuccess.value = false;
+      saveStatusMessage.value = "";
       emit("close");
-    }, 600);
+    }, 850);
   } catch (err) {
     console.error("Failed to save settings:", err);
+    alert(`Failed to save settings: ${err.message || err}`);
   } finally {
     isSaving.value = false;
   }
@@ -208,6 +234,8 @@ const handleResetDefaults = async () => {
   localSettings.close_to_tray = true;
   localSettings.start_minimized = false;
   localSettings.default_profile = "preset-fps-250";
+  localSettings.phone_remote_enabled = true;
+  localSettings.phone_remote_port = 18240;
   // Reset hotkeys to standard defaults
   const defaults = [
     {
@@ -355,8 +383,8 @@ const handleBackdropClick = (e) => {
                 <span>DDC/CI Bus</span>
               </TabsTrigger>
               <TabsTrigger value="remote" class="gap-1.5 py-2">
-                <Smartphone class="w-3.5 h-3.5" />
-                <span>Phone Remote</span>
+                <Globe class="w-3.5 h-3.5" />
+                <span>Network & Remote</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -707,6 +735,112 @@ const handleBackdropClick = (e) => {
                   </div>
                 </div>
               </div>
+
+              <!-- Web Server & Network Port -->
+              <div
+                class="p-4 space-y-3.5 border rounded-lg bg-muted/30 border-border"
+              >
+                <div class="flex items-center justify-between">
+                  <div class="space-y-0.5">
+                    <div class="flex items-center space-x-2">
+                      <label class="text-sm font-semibold text-foreground"
+                        >Web Server & Network Port</label
+                      >
+                      <Badge
+                        variant="outline"
+                        class="font-mono text-[10px] text-primary border-primary/30"
+                      >
+                        :{{ localSettings.phone_remote_port }}
+                      </Badge>
+                    </div>
+                    <p class="text-xs text-muted-foreground">
+                      Embedded HTTP server port for LAN phone remote control and local REST API
+                    </p>
+                  </div>
+                  <Switch
+                    :checked="localSettings.phone_remote_enabled"
+                    @update:checked="localSettings.phone_remote_enabled = $event"
+                  />
+                </div>
+
+                <div
+                  v-if="localSettings.phone_remote_enabled"
+                  class="pt-3 border-t border-border/60 space-y-3"
+                >
+                  <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                      <span class="text-xs font-medium text-foreground"
+                        >Application Server Port:</span
+                      >
+                      <span class="text-[11px] text-muted-foreground font-mono"
+                        >Default: 18240</span
+                      >
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <input
+                        type="number"
+                        v-model.number="localSettings.phone_remote_port"
+                        min="1024"
+                        max="65535"
+                        class="w-32 bg-background border border-input rounded-md px-3 py-1.5 text-sm font-mono text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      />
+                      <div class="flex flex-wrap items-center gap-1.5">
+                        <Button
+                          v-for="preset in portPresets"
+                          :key="preset.port"
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          class="h-8 text-xs font-mono"
+                          :class="
+                            localSettings.phone_remote_port === preset.port
+                              ? 'border-primary bg-primary/10 text-primary font-bold'
+                              : 'bg-card text-muted-foreground border-border hover:text-foreground'
+                          "
+                          @click="localSettings.phone_remote_port = preset.port"
+                        >
+                          {{ preset.label }}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Dev Port Conflict Warning -->
+                  <div
+                    v-if="isDevPortConflict"
+                    class="p-2.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-500 flex items-start gap-2 text-xs"
+                  >
+                    <AlertTriangle class="w-4 h-4 shrink-0 mt-0.5" />
+                    <div>
+                      <p class="font-semibold">Web Development Port Detected</p>
+                      <p class="text-[11px] text-muted-foreground mt-0.5">
+                        Port {{ localSettings.phone_remote_port }} is commonly used by local development servers (Django, Next.js, FastAPI, Vite). We recommend using <strong>18240</strong> or <strong>24025</strong> to prevent port conflict errors.
+                      </p>
+                    </div>
+                  </div>
+
+                  <!-- Live Endpoints Details -->
+                  <div
+                    class="p-2.5 rounded-md bg-card/60 border border-border/70 text-[11px] text-muted-foreground space-y-1"
+                  >
+                    <div class="flex items-center justify-between">
+                      <span>Local URL:</span>
+                      <span class="font-mono text-foreground font-semibold"
+                        >http://localhost:{{ localSettings.phone_remote_port }}</span
+                      >
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span>LAN / Wi-Fi URL:</span>
+                      <span class="font-mono text-foreground font-semibold"
+                        >http://{{ monitorInfo?.lan_ip || '127.0.0.1' }}:{{ localSettings.phone_remote_port }}</span
+                      >
+                    </div>
+                    <p class="text-[10px] text-muted-foreground italic pt-1 border-t border-border/40">
+                      ⚡ Port changes apply immediately upon clicking Save Preferences without restarting the app.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </TabsContent>
 
@@ -785,7 +919,7 @@ const handleBackdropClick = (e) => {
             </div>
           </TabsContent>
 
-          <!-- Content: Phone Remote Tab -->
+          <!-- Content: Network & Phone Remote Tab -->
           <TabsContent
             value="remote"
             class="flex-1 p-6 m-0 space-y-5 overflow-y-auto"
@@ -796,11 +930,11 @@ const handleBackdropClick = (e) => {
               >
                 <div class="space-y-0.5">
                   <label class="text-sm font-semibold text-foreground"
-                    >Enable Mobile Wi-Fi Server</label
+                    >Enable Mobile Wi-Fi & Web Server</label
                   >
                   <p class="text-xs text-muted-foreground">
                     Permits smartphones on your local Wi-Fi to control the
-                    monitor
+                    monitor via web browser or PWA
                   </p>
                 </div>
                 <Switch
@@ -810,42 +944,83 @@ const handleBackdropClick = (e) => {
               </div>
 
               <div
-                class="p-4 space-y-2 border rounded-lg bg-muted/30 border-border"
+                class="p-4 space-y-3.5 border rounded-lg bg-muted/30 border-border"
               >
-                <label class="block text-sm font-semibold text-foreground"
-                  >HTTP Server Port</label
+                <div>
+                  <div class="flex items-center justify-between mb-1.5">
+                    <label class="block text-sm font-semibold text-foreground"
+                      >Server Port Number</label
+                    >
+                    <span class="text-[11px] text-muted-foreground font-mono"
+                      >Range: 1024 – 65535</span
+                    >
+                  </div>
+                  <p class="text-xs text-muted-foreground mb-2.5">
+                    Port on which the internal web server listens. Defaults to <strong>18240</strong> to avoid colliding with local web development environments.
+                  </p>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <input
+                      type="number"
+                      v-model.number="localSettings.phone_remote_port"
+                      min="1024"
+                      max="65535"
+                      class="w-32 bg-background border border-input rounded-md px-3 py-1.5 text-sm font-mono text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                    <div class="flex flex-wrap items-center gap-1.5">
+                      <Button
+                        v-for="preset in portPresets"
+                        :key="preset.port"
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        class="h-8 text-xs font-mono"
+                        :class="
+                          localSettings.phone_remote_port === preset.port
+                            ? 'border-primary bg-primary/10 text-primary font-bold'
+                            : 'bg-card text-muted-foreground border-border hover:text-foreground'
+                        "
+                        @click="localSettings.phone_remote_port = preset.port"
+                      >
+                        {{ preset.label }}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Dev Port Conflict Warning -->
+                <div
+                  v-if="isDevPortConflict"
+                  class="p-2.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-500 flex items-start gap-2 text-xs"
                 >
-                <div class="flex items-center max-w-xs space-x-2">
-                  <input
-                    type="number"
-                    v-model.number="localSettings.phone_remote_port"
-                    min="1024"
-                    max="65535"
-                    class="w-full bg-background border border-input rounded-md px-3 py-1.5 text-sm font-mono text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  />
-                  <Badge variant="secondary" class="font-mono text-xs"
-                    >Default 8000</Badge
-                  >
+                  <AlertTriangle class="w-4 h-4 shrink-0 mt-0.5" />
+                  <div>
+                    <p class="font-semibold">Web Development Port Detected</p>
+                    <p class="text-[11px] text-muted-foreground mt-0.5">
+                      Port {{ localSettings.phone_remote_port }} is commonly used by local development servers (Django, Next.js, FastAPI, Vite). We recommend using <strong>18240</strong> or <strong>24025</strong> to prevent port conflict errors.
+                    </p>
+                  </div>
                 </div>
               </div>
 
               <div
-                class="p-4 border rounded-lg bg-muted/40 border-border text-xs text-muted-foreground space-y-1.5"
+                class="p-4 border rounded-lg bg-muted/40 border-border text-xs text-muted-foreground space-y-2"
               >
-                <p class="font-semibold text-foreground">
-                  Pairing Information:
+                <p class="font-semibold text-foreground flex items-center gap-1.5">
+                  <Globe class="w-3.5 h-3.5 text-primary" />
+                  <span>Network Endpoints & Pairing:</span>
                 </p>
-                <p>
-                  Local IP:
-                  <span class="font-mono font-semibold text-foreground">{{
-                    monitorInfo?.lan_ip || "127.0.0.1"
-                  }}</span>
-                </p>
-                <p>
-                  Phone URL:
-                  <span class="font-mono font-semibold text-foreground">{{
-                    monitorInfo?.phone_url || "http://localhost:8000"
-                  }}</span>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 font-mono text-[11px]">
+                  <div class="p-2 rounded bg-background/80 border border-border/60">
+                    <span class="block text-[10px] uppercase font-bold text-muted-foreground">Local Host</span>
+                    <span class="text-foreground">http://localhost:{{ localSettings.phone_remote_port }}</span>
+                  </div>
+                  <div class="p-2 rounded bg-background/80 border border-border/60">
+                    <span class="block text-[10px] uppercase font-bold text-muted-foreground">Local Wi-Fi (Phone Remote)</span>
+                    <span class="text-foreground">http://{{ monitorInfo?.lan_ip || "127.0.0.1" }}:{{ localSettings.phone_remote_port }}</span>
+                  </div>
+                </div>
+                <p class="text-[11px] text-muted-foreground pt-1">
+                  💡 On your desktop header, click <strong>"Phone Remote"</strong> to display the instant camera QR code!
                 </p>
               </div>
             </div>
@@ -867,17 +1042,18 @@ const handleBackdropClick = (e) => {
             size="sm"
             @click="handleSave"
             :disabled="isSaving"
-            class="gap-1.5 min-w-[120px]"
+            class="gap-1.5 min-w-[140px]"
           >
             <Check v-if="saveSuccess" class="w-4 h-4 text-emerald-400" />
             <RefreshCw v-else-if="isSaving" class="w-4 h-4 animate-spin" />
             <Save v-else class="w-4 h-4" />
             <span>{{
-              saveSuccess
+              saveStatusMessage ||
+              (saveSuccess
                 ? "Saved!"
                 : isSaving
                   ? "Saving..."
-                  : "Save Preferences"
+                  : "Save Preferences")
             }}</span>
           </Button>
         </div>

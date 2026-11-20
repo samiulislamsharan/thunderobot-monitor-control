@@ -8,7 +8,8 @@ use crate::settings::{
 use log::{error, info};
 use rust_embed::RustEmbed;
 use std::net::UdpSocket;
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 use tiny_http::{Header, Method, Response, Server, StatusCode};
 
 #[derive(RustEmbed)]
@@ -101,70 +102,151 @@ fn read_json_body(request: &mut tiny_http::Request) -> Result<serde_json::Value,
     serde_json::from_str(&body).map_err(|e| e.to_string())
 }
 
-pub fn start_server(ddcci: Arc<DdcciController>, settings: Arc<Mutex<AppSettings>>, port: u16) {
-    let bind_addr = format!("0.0.0.0:{}", port);
-    let server = match Server::http(&bind_addr) {
-        Ok(s) => {
-            info!("Phone Remote server listening on http://{}", bind_addr);
-            s
+struct ServerInstance {
+    server: Arc<Server>,
+    running: Arc<AtomicBool>,
+    port: u16,
+}
+
+pub struct ServerManager {
+    instance: Mutex<Option<ServerInstance>>,
+}
+
+impl ServerManager {
+    pub fn new() -> Self {
+        Self {
+            instance: Mutex::new(None),
         }
-        Err(e) => {
-            error!("Failed to bind Phone Remote server to {}: {}", bind_addr, e);
-            return;
+    }
+
+    pub fn stop(&self) {
+        let mut lock = self.instance.lock().unwrap();
+        if let Some(inst) = lock.take() {
+            inst.running.store(false, Ordering::SeqCst);
+            inst.server.unblock();
+            info!("Embedded server on port {} stopped", inst.port);
         }
-    };
+    }
 
-    let server_arc = Arc::new(server);
+    pub fn current_port(&self) -> Option<u16> {
+        let lock = self.instance.lock().unwrap();
+        lock.as_ref().map(|i| i.port)
+    }
 
-    // Spawn 3 background worker threads
-    for _ in 0..3 {
-        let server = server_arc.clone();
-        let ddcci = ddcci.clone();
-        let settings = settings.clone();
+    pub fn restart(
+        &self,
+        ddcci: Arc<DdcciController>,
+        settings: Arc<Mutex<AppSettings>>,
+        port: u16,
+    ) -> Result<u16, String> {
+        let mut lock = self.instance.lock().unwrap();
 
-        std::thread::spawn(move || {
-            for request in server.incoming_requests() {
-                let method = request.method().clone();
-                let url = request.url().to_string();
-                let path = url.split('?').next().unwrap_or(&url).to_string();
-
-                if method == Method::Options {
-                    let _ = request.respond(empty_response(200));
-                    continue;
-                }
-
-                // API Routes
-                if path.starts_with("/api/") {
-                    handle_api(request, &method, &path, &ddcci, &settings, port);
-                    continue;
-                }
-
-                // Static Web Assets (Frontend)
-                handle_static(request, &path);
+        // If already running on this port and healthy, keep running
+        if let Some(ref inst) = *lock {
+            if inst.port == port && inst.running.load(Ordering::SeqCst) {
+                return Ok(port);
             }
+        }
+
+        // Stop existing instance
+        if let Some(inst) = lock.take() {
+            inst.running.store(false, Ordering::SeqCst);
+            inst.server.unblock();
+            info!("Stopping server on port {}", inst.port);
+            std::thread::sleep(std::time::Duration::from_millis(60));
+        }
+
+        let bind_addr = format!("0.0.0.0:{}", port);
+        let server = match Server::http(&bind_addr) {
+            Ok(s) => {
+                info!("Embedded web & phone remote server listening on http://{}", bind_addr);
+                s
+            }
+            Err(e) => {
+                let err_msg = format!("Failed to bind server to {}: {}", bind_addr, e);
+                error!("{}", err_msg);
+                return Err(err_msg);
+            }
+        };
+
+        let server_arc = Arc::new(server);
+        let running = Arc::new(AtomicBool::new(true));
+
+        *lock = Some(ServerInstance {
+            server: server_arc.clone(),
+            running: running.clone(),
+            port,
         });
-    }
 
-    // Main worker loop on the current spawned thread
-    for request in server_arc.incoming_requests() {
-        let method = request.method().clone();
-        let url = request.url().to_string();
-        let path = url.split('?').next().unwrap_or(&url).to_string();
+        // Spawn 4 background worker threads
+        for _ in 0..4 {
+            let s = server_arc.clone();
+            let d = ddcci.clone();
+            let set = settings.clone();
+            let run = running.clone();
 
-        if method == Method::Options {
-            let _ = request.respond(empty_response(200));
-            continue;
+            std::thread::spawn(move || {
+                while run.load(Ordering::SeqCst) {
+                    match s.recv() {
+                        Ok(request) => {
+                            let method = request.method().clone();
+                            let url = request.url().to_string();
+                            let path = url.split('?').next().unwrap_or(&url).to_string();
+
+                            if method == Method::Options {
+                                let _ = request.respond(empty_response(200));
+                                continue;
+                            }
+
+                            // API Routes
+                            if path.starts_with("/api/") {
+                                handle_api(request, &method, &path, &d, &set, port);
+                                continue;
+                            }
+
+                            // Static Web Assets (Frontend)
+                            handle_static(request, &path);
+                        }
+                        Err(_) => {
+                            break;
+                        }
+                    }
+                }
+            });
         }
 
-        // API Routes
-        if path.starts_with("/api/") {
-            handle_api(request, &method, &path, &ddcci, &settings, port);
-            continue;
-        }
-
-        // Static Web Assets (Frontend)
-        handle_static(request, &path);
+        Ok(port)
     }
+}
+
+static SERVER_MANAGER: OnceLock<ServerManager> = OnceLock::new();
+
+pub fn get_server_manager() -> &'static ServerManager {
+    SERVER_MANAGER.get_or_init(ServerManager::new)
+}
+
+pub fn start_server(
+    ddcci: Arc<DdcciController>,
+    settings: Arc<Mutex<AppSettings>>,
+    port: u16,
+) -> Result<u16, String> {
+    get_server_manager().restart(ddcci, settings, port)
+}
+
+pub fn stop_server() {
+    get_server_manager().stop();
+}
+
+pub fn restart_server(
+    ddcci: Arc<DdcciController>,
+    settings: Arc<Mutex<AppSettings>>,
+    port: u16,
+) -> Result<u16, String> {
+    get_server_manager().restart(ddcci, settings, port)
+}
+
+pub fn get_active_port() -> Option<u16> {
+    get_server_manager().current_port()
 }
 
 fn handle_api(
@@ -382,11 +464,29 @@ fn handle_api(
             if let Ok(new_set) = serde_json::from_value::<AppSettings>(body) {
                 let _ = save_settings(&new_set);
                 ddcci.set_delay(new_set.i2c_delay_ms);
+                let port_changed = new_set.phone_remote_port != port;
+                let enabled_changed = !new_set.phone_remote_enabled;
+
                 if let Ok(mut current) = settings.lock() {
                     *current = new_set.clone();
                 }
                 let resp = serde_json::json!({ "success": true, "settings": new_set });
                 let _ = request.respond(json_response(&resp, 200));
+
+                if port_changed || enabled_changed {
+                    let d = ddcci.clone();
+                    let s = settings.clone();
+                    let new_port = new_set.phone_remote_port;
+                    let enabled = new_set.phone_remote_enabled;
+                    std::thread::spawn(move || {
+                        std::thread::sleep(std::time::Duration::from_millis(150));
+                        if enabled {
+                            let _ = restart_server(d, s, new_port);
+                        } else {
+                            stop_server();
+                        }
+                    });
+                }
                 return;
             }
         }

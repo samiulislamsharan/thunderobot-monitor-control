@@ -104,7 +104,7 @@ DEFAULT_SETTINGS = {
     "i2c_delay_ms": 35,
     "telemetry_interval_sec": 3,
     "phone_remote_enabled": True,
-    "phone_remote_port": 8000,
+    "phone_remote_port": 18240,
     "hotkeys": DEFAULT_HOTKEYS
 }
 
@@ -182,6 +182,11 @@ class SettingsManager:
         for k, v in DEFAULT_SETTINGS.items():
             if k not in self.settings:
                 self.settings[k] = v
+
+        # Auto-migrate away from 8000 to avoid conflicting with local web development
+        if self.settings.get("phone_remote_port") in (8000, 0, None):
+            self.settings["phone_remote_port"] = 18240
+            self.save()
 
     def save(self):
         try:

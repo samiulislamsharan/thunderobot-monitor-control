@@ -125,7 +125,7 @@ def get_monitor_edid_info() -> Dict[str, Any]:
 
     return monitor_info
 
-def get_complete_monitor_metadata(port: int = 8000) -> Dict[str, Any]:
+def get_complete_monitor_metadata(port: int = 18240) -> Dict[str, Any]:
     """Aggregate hardware, display mode, and network pairing endpoints."""
     lan_ip = get_lan_ip()
     edid = get_monitor_edid_info()

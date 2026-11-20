@@ -33,7 +33,7 @@ flowchart TB
         Tray["System Tray & Window Manager (lib.rs)"]
         Profiles["Profile Storage (profiles.rs)"]
         Hotkeys["Global Hotkeys (tauri-plugin-global-shortcut)"]
-        EmbeddedServer["Embedded Server (server.rs)\n• tiny_http on 0.0.0.0:8000\n• Embedded Vue Assets (rust-embed)\n• Dynamic LAN IP Detection"]
+        EmbeddedServer["Embedded Server (server.rs)\n• tiny_http on 0.0.0.0:18240\n• Embedded Vue Assets (rust-embed)\n• Dynamic LAN IP Detection"]
     end
 
     subgraph HardwareAbstraction ["4. Hardware Controller Layer (ddcci.rs)"]
@@ -208,7 +208,7 @@ All UI components make API calls exclusively through `api.*` methods in `adapter
 ### 4.3. Embedded Smartphone Remote Server (`src-tauri/src/server.rs`)
 
 - Runs directly inside the compiled `.exe` using `tiny_http` and `rust-embed`.
-- Binds to `0.0.0.0:<port>` (default `8000`).
+- Binds to `0.0.0.0:<port>` (default `18240`, configurable in Settings).
 - Embeds `frontend/dist` statically at compile time—single portable `.exe` with zero runtime asset dependencies.
 - Discovers the host PC's local LAN IP dynamically without sending network traffic:
   ```rust
@@ -306,5 +306,5 @@ When working on this repository, all AI agents and contributors **MUST** follow 
 
 ### Issue: "Phone cannot connect over Wi-Fi"
 
-- **Cause**: Windows Firewall blocking port 8000 on private network.
-- **Fix**: Ensure Windows Defender Firewall allows incoming TCP on port 8000 for `thunderobot-monitor-control.exe`.
+- **Cause**: Windows Firewall blocking the application port (default: 18240) on private network.
+- **Fix**: Ensure Windows Defender Firewall allows incoming TCP on the configured port (default: 18240) for `thunderobot-monitor-control.exe`.

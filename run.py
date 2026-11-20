@@ -69,8 +69,15 @@ def main():
     # 1. Build frontend if needed
     check_and_build_frontend()
 
+    import argparse
+    parser = argparse.ArgumentParser(description="ThundeRobot DQ34C240L Monitor Control Suite")
+    parser.add_argument("--port", type=int, default=None, help="HTTP server port (default from settings or 18240)")
+    args, _ = parser.parse_known_args()
+
+    from backend.settings_manager import settings_manager
+
     lan_ip = get_lan_ip()
-    port = 8000
+    port = args.port or settings_manager.get_all().get("phone_remote_port", 18240)
     desktop_url = f"http://localhost:{port}"
     phone_url = f"http://{lan_ip}:{port}"
 
